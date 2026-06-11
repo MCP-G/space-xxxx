@@ -30,6 +30,8 @@ export class FlightController {
   }
 
   active = false;
+  /** Engine upgrade multiplier (bribed engineers improve everything). */
+  power = 1;
 
   /** Sync steering to the ship's current attitude (call when taking the seat). */
   syncToShip() {
@@ -52,12 +54,13 @@ export class FlightController {
 
     const boost = this.keys.has('ShiftLeft');
     const a = new THREE.Vector3();
-    if (this.keys.has('KeyW')) a.addScaledVector(forward, boost ? BOOST : THRUST);
-    if (this.keys.has('KeyS')) a.addScaledVector(forward, -THRUST * 0.6);
-    if (this.keys.has('KeyA')) a.addScaledVector(right, -STRAFE);
-    if (this.keys.has('KeyD')) a.addScaledVector(right, STRAFE);
-    if (this.keys.has('KeyR')) a.addScaledVector(up, STRAFE);
-    if (this.keys.has('KeyF')) a.addScaledVector(up, -STRAFE);
+    const p = this.power;
+    if (this.keys.has('KeyW')) a.addScaledVector(forward, (boost ? BOOST : THRUST) * p);
+    if (this.keys.has('KeyS')) a.addScaledVector(forward, -THRUST * 0.6 * p);
+    if (this.keys.has('KeyA')) a.addScaledVector(right, -STRAFE * p);
+    if (this.keys.has('KeyD')) a.addScaledVector(right, STRAFE * p);
+    if (this.keys.has('KeyR')) a.addScaledVector(up, STRAFE * p);
+    if (this.keys.has('KeyF')) a.addScaledVector(up, -STRAFE * p);
 
     ship.velocity.addScaledVector(a, dt);
     const damp = this.keys.has('Space') ? BRAKE : DAMPING;

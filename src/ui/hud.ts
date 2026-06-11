@@ -40,6 +40,21 @@ export class Hud {
     this.flight.textContent = `VEL ${speed.toFixed(0)} m/s\n${nearest ?? ''}`;
   }
 
+  private market = el('market', `${MONO}position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:460px;font-size:13px;line-height:1.7;border:1px solid #7fffd455;padding:14px;background:#0a0a12ee;display:none;`);
+  private status = el('status', `${MONO}position:absolute;bottom:12px;right:18px;font-size:12px;text-align:right;pointer-events:none;white-space:pre;`);
+
+  /** Market panel. rows pre-formatted; null hides. */
+  setMarket(html: string | null) {
+    this.market.style.display = html ? 'block' : 'none';
+    if (html) this.market.innerHTML = html;
+  }
+
+  get marketOpen() { return this.market.style.display !== 'none'; }
+
+  setStatus(text: string) {
+    this.status.textContent = text;
+  }
+
   /** Transient yellow line — terminal chatter, dock confirmations. */
   say(text: string, seconds = 4) {
     this.toast.textContent = text;

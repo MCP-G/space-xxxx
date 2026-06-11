@@ -5,7 +5,7 @@ import * as Tone from 'tone';
  * Acid-ish bassline (16-step), euclidean hat pattern, drifting pad,
  * everything through a bitcrusher into a limiter. Footsteps are FM blips.
  */
-export type MusicMode = 'station' | 'flight';
+export type MusicMode = 'station' | 'flight' | 'danger';
 
 export class AudioDirector {
   private started = false;
@@ -128,11 +128,43 @@ export class AudioDirector {
       Tone.getTransport().bpm.rampTo(140, 2);
       this.padChannel.volume.rampTo(-14, 1.5);
       this.leadChannel.volume.rampTo(0, 1.5);
+      this.crusher.wet.rampTo(0.35, 1);
+    } else if (mode === 'danger') {
+      Tone.getTransport().bpm.rampTo(152, 1);
+      this.padChannel.volume.rampTo(-24, 0.8);
+      this.leadChannel.volume.rampTo(3, 0.8);
+      this.crusher.wet.rampTo(0.55, 0.5);
     } else {
       Tone.getTransport().bpm.rampTo(124, 2);
       this.padChannel.volume.rampTo(0, 1.5);
       this.leadChannel.volume.rampTo(-60, 1.5);
+      this.crusher.wet.rampTo(0.35, 1);
     }
+  }
+
+  /** Blaster discharge: descending zap. */
+  zap() {
+    if (!this.started) return;
+    const s = new Tone.Synth({
+      oscillator: { type: 'sawtooth' },
+      envelope: { attack: 0.001, decay: 0.12, sustain: 0, release: 0.02 },
+    }).connect(this.crusher);
+    s.frequency.value = 900;
+    s.triggerAttackRelease(900, '16n');
+    s.frequency.rampTo(120, 0.12);
+    setTimeout(() => s.dispose(), 400);
+  }
+
+  /** Something exploded. Probably fine. */
+  boom() {
+    if (!this.started) return;
+    const n = new Tone.NoiseSynth({
+      noise: { type: 'brown' },
+      envelope: { attack: 0.002, decay: 0.5, sustain: 0 },
+    }).connect(this.master);
+    n.volume.value = -4;
+    n.triggerAttackRelease('4n');
+    setTimeout(() => n.dispose(), 1200);
   }
 
   /** Engine rumble loudness, 0..1 (thrust input + speed). */

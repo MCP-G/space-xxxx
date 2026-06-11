@@ -1,7 +1,7 @@
 import './style.css';
 import * as THREE from 'three';
 import { PixelPipeline } from './render/PixelPipeline';
-import { buildStation, TERMINAL_LINES } from './world/station';
+import { buildStation, TERMINAL_LINES, PALETTE } from './world/station';
 import { buildSector, type Poi } from './world/sector';
 import { WalkController } from './player/WalkController';
 import { FlightController } from './player/FlightController';
@@ -10,6 +10,8 @@ import { AudioDirector } from './audio/AudioDirector';
 import { Hud } from './ui/hud';
 import { InteractionRegistry } from './core/Interactable';
 import { Ministry } from './chain/ministry';
+import { PlayerState, marketPrices, COMMODITIES, CARGO_CAPACITY } from './game/economy';
+import { CombatSystem } from './game/combat';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#game')!;
 const boot = document.querySelector<HTMLDivElement>('#boot')!;
@@ -26,6 +28,9 @@ let sector = buildSector(world, ministry.improviseSeed());
 const audio = new AudioDirector();
 const hud = new Hud();
 const interactions = new InteractionRegistry();
+
+const player = new PlayerState();
+player.load();
 
 // --- ship, parked in the hangar, nose at the field
 const ship = new Ship();
@@ -89,6 +94,172 @@ interactions.add({
   },
 });
 
+// --- markets: trade panel with seeded prices per location
+let openMarketId: number | null = null;
+function renderMarket() {
+  if (openMarketId === null) { hud.setMarket(null); return; }
+  const listings = marketPrices(sector.seed, openMarketId);
+  const rows = listings.map((l, i) => {
+    const have = player.cargo.get(l.commodity.id) ?? 0;
+    return `<tr><td style="color:#b8b8d8">[${i + 1}]</td><td>${l.commodity.name}</td>` +
+      `<td style="color:#7fffd4">${l.buy}¢</td><td style="color:#ff2e88">${l.sell}¢</td>` +
+      `<td style="color:#ffd23e">x${have}</td></tr>`;
+  }).join('');
+  hud.setMarket(
+    `<b>${openMarketId === 1 ? 'THE RESTAURANT AT THE END OF THE CORRIDOR' : 'BEACON KIOSK (UNSTAFFED, JUDGEMENTAL)'}</b><br>` +
+    `<span style="color:#b8b8d8">[1-6] buy · SHIFT+[1-6] sell · E close</span>` +
+    `<table style="width:100%;border-collapse:collapse">` +
+    `<tr style="color:#666"><td></td><td>GOODS</td><td>BUY</td><td>SELL</td><td>HOLD</td></tr>${rows}</table>` +
+    `<span style="color:#7fffd4">CREDITS: ${player.credits}¢</span> · ` +
+    `<span style="color:#ffd23e">CARGO: ${player.cargoCount()}/${CARGO_CAPACITY}</span>`
+  );
+}
+
+document.addEventListener('keydown', (e) => {
+  if (openMarketId === null) return;
+  const idx = ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6'].indexOf(e.code);
+  if (idx < 0 || idx >= COMMODITIES.length) return;
+  const listing = marketPrices(sector.seed, openMarketId)[idx];
+  if (e.shiftKey) {
+    if (player.remove(listing.commodity.id)) {
+      player.credits += listing.sell;
+      audio.footstep();
+    } else hud.say('NOTHING OF THAT SORT IN THE HOLD. THE HOLD CHECKED TWICE.', 2);
+  } else {
+    if (player.credits < listing.buy) hud.say('INSUFFICIENT CREDITS. THE ECONOMY REMAINS UNMOVED.', 2);
+    else if (!player.add(listing.commodity.id)) hud.say('CARGO FULL. PHYSICS SENDS ITS REGARDS.', 2);
+    else { player.credits -= listing.buy; audio.footstep(); }
+  }
+  player.save();
+  renderMarket();
+});
+
+interactions.add({
+  position: new THREE.Vector3(0, 0.9, 16.5),
+  radius: 2.4,
+  label: 'E — TRADE (THE RESTAURANT)',
+  enabled: true,
+  onUse: () => { openMarketId = openMarketId === null ? 1 : null; renderMarket(); },
+});
+
+// beacon kiosk market — position tracks the current sector's beacon
+const kioskInteract = interactions.add({
+  position: new THREE.Vector3(),
+  radius: 2.4,
+  label: 'E — TRADE (KIOSK)',
+  enabled: false,
+  onUse: () => { openMarketId = openMarketId === null ? 2 : null; renderMarket(); },
+});
+
+// --- salvage + combat
+const combat = new CombatSystem(world.scene, {
+  onShot: () => audio.zap(),
+  onDroneDown: (pos) => {
+    audio.boom();
+    pipeline.triggerGlitch(0.7);
+    if (player.add('scrap', 2)) hud.say('DRONE DISASSEMBLED. 2 SCRAP BEAMED ABOARD, NO QUESTIONS.', 3);
+    else hud.say('DRONE DISASSEMBLED. SCRAP LOST TO THE VOID (CARGO FULL).', 3);
+    player.save();
+    void pos;
+  },
+  onPlayerHit: (dmg) => {
+    player.hull -= dmg;
+    pipeline.triggerGlitch(0.9);
+    audio.glitchBurst();
+    if (player.hull <= 0) {
+      player.hull = 100;
+      const scrap = player.cargo.get('scrap') ?? 0;
+      player.remove('scrap', Math.ceil(scrap / 2));
+      player.save();
+      activePoi = null;
+      ship.park(HANGAR_PARK.x, HANGAR_PARK.y, HANGAR_PARK.z, HANGAR_PARK.yaw);
+      enterWalk(0, 0, -5.4);
+      hud.say('YOU DIED. THE MINISTRY HAS RESPAWNED YOU AND INVOICED THE EXPERIENCE.', 6);
+    } else {
+      hud.say(`HULL/PERSON INTEGRITY: ${player.hull}%`, 1.5);
+    }
+  },
+});
+
+interface SalvageItem { mesh: THREE.Mesh; taken: boolean; }
+let salvageItems: SalvageItem[] = [];
+const salvageInteract = interactions.add({
+  position: new THREE.Vector3(),
+  radius: 2,
+  label: 'E — SALVAGE (FINDERS, KEEPERS, FILERS)',
+  enabled: false,
+  onUse: () => {
+    const item = salvageItems.find((s) => !s.taken && s.mesh.position.distanceTo(walk.camera.position) < 2.5);
+    if (!item) return;
+    if (!player.add('scrap')) { hud.say('CARGO FULL. PHYSICS SENDS ITS REGARDS.', 2); return; }
+    item.taken = true;
+    item.mesh.visible = false;
+    player.save();
+    audio.footstep();
+    hud.say('+1 SCRAP (PROVENANCE: DUBIOUS)', 2);
+  },
+});
+
+function populateSector() {
+  combat.populate(sector);
+  // scrap crates on the derelict pad
+  for (const s of salvageItems) world.scene.remove(s.mesh);
+  salvageItems = [];
+  const derelict = sector.pois.find((p) => p.kind === 'derelict');
+  if (derelict?.dock) {
+    const glow = new THREE.MeshBasicMaterial({ color: PALETTE.trim });
+    for (let i = 0; i < 3; i++) {
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 0.6), glow);
+      mesh.position.copy(derelict.dock.standPos).add(new THREE.Vector3((i - 1) * 2.5, 0.3, -3));
+      mesh.userData.guideTitle = 'ABANDONED CARGO';
+      mesh.userData.guideText = 'Legally salvage after 30 years. It has been 31. Suspiciously precise.';
+      world.scene.add(mesh);
+      salvageItems.push({ mesh, taken: false });
+    }
+  }
+  // kiosk market follows the beacon
+  const beacon = sector.pois.find((p) => p.kind === 'beacon');
+  if (beacon?.dock) {
+    kioskInteract.position.copy(beacon.dock.standPos);
+    kioskInteract.enabled = true;
+  } else kioskInteract.enabled = false;
+}
+populateSector();
+
+// the engineer leans on the crates in the hangar, improving engines for scrap
+interactions.add({
+  position: new THREE.Vector3(6, 1, -4),
+  radius: 2.4,
+  label: 'E — BRIBE ENGINEER (5 SCRAP → ENGINE +25%)',
+  enabled: true,
+  onUse: () => {
+    if (!player.remove('scrap', 5)) {
+      hud.say('ENGINEER: "FIVE SCRAP OR FIVE YEARS OF SMALL TALK. YOUR CHOICE."', 3);
+      return;
+    }
+    player.engineLevel++;
+    flight.power = 1 + 0.25 * (player.engineLevel - 1);
+    player.save();
+    audio.boom();
+    pipeline.triggerGlitch(0.5);
+    hud.say(`ENGINE MK.${player.engineLevel}. WARRANTY: STILL NO.`, 4);
+  },
+});
+flight.power = 1 + 0.25 * (player.engineLevel - 1);
+
+// --- blaster: click to shoot (when pointer is locked and no menu open)
+canvas.addEventListener('mousedown', () => {
+  if (document.pointerLockElement !== canvas || openMarketId !== null) return;
+  if (mode === 'walk') {
+    const dir = new THREE.Vector3();
+    walk.camera.getWorldDirection(dir);
+    combat.shoot(walk.camera.position.clone(), dir);
+  } else {
+    const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(ship.quaternion);
+    combat.shoot(ship.seatWorld().clone().addScaledVector(dir, 5), dir);
+  }
+});
+
 // Ministry filing window: the screen beside the terminal monolith
 let filing = false;
 interactions.add({
@@ -148,6 +319,9 @@ function setSector(seed: number) {
   sector = buildSector(world, seed);
   dockSpots = buildDockSpots();
   activePoi = null;
+  openMarketId = null;
+  hud.setMarket(null);
+  populateSector();
   // anyone not at the station gets repossessed to the hangar, for safety
   ship.park(HANGAR_PARK.x, HANGAR_PARK.y, HANGAR_PARK.z, HANGAR_PARK.yaw);
   if (mode === 'fly') enterWalk(0, 0, -5.4);
@@ -290,7 +464,7 @@ window.addEventListener('resize', () => {
 // debug/test hook (drives scripted verification; harmless in production)
 Object.assign(window as any, {
   __game: {
-    walk, flight, ship, dockAt, enterFlight, setSector,
+    walk, flight, ship, dockAt, enterFlight, setSector, combat, player,
     sector: () => sector,
     dockSpots: () => dockSpots,
     mode: () => mode,
@@ -351,6 +525,28 @@ function frame(now: number) {
 
     audio.setThrust(flight.thrusting ? 0.4 + (flight.speed / 90) * 0.6 : (flight.speed / 90) * 0.3);
   }
+
+  // combat + danger music
+  const target = mode === 'walk' ? walk.camera.position : ship.position;
+  const targetRadius = mode === 'walk' ? 1.2 : 3.5;
+  combat.update(dt, t, target, targetRadius);
+  audio.setMode(combat.inDanger(target) ? 'danger' : mode === 'fly' ? 'flight' : 'station');
+
+  // salvage prompt proximity
+  salvageInteract.enabled = salvageItems.some(
+    (s) => !s.taken && s.mesh.position.distanceTo(walk.camera.position) < 2.5
+  );
+  if (salvageInteract.enabled) {
+    const near = salvageItems.find((s) => !s.taken && s.mesh.position.distanceTo(walk.camera.position) < 2.5)!;
+    salvageInteract.position.copy(near.mesh.position);
+  }
+
+  // status line
+  hud.setStatus(
+    `CREDITS ${player.credits}¢ · CARGO ${player.cargoCount()}/${CARGO_CAPACITY}\n` +
+    `HULL ${player.hull}% · ENGINE MK.${player.engineLevel}` +
+    (combat.aliveCount > 0 ? `\nDRONES: ${combat.aliveCount} (displeased)` : '')
+  );
 
   pipeline.render(world.scene, walk.camera, dt, t);
   requestAnimationFrame(frame);
