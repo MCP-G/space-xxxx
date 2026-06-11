@@ -19,7 +19,7 @@ import { InteractionRegistry } from './core/Interactable';
 import { Ministry } from './chain/ministry';
 import { PlayerState, marketPrices, COMMODITIES, CARGO_CAPACITY } from './game/economy';
 import { CombatSystem, WEAPONS } from './game/combat';
-import { MissionBoard } from './game/missions';
+import { MissionBoard, GOOSE_HOPS, GOOSE_ENDINGS } from './game/missions';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#game')!;
 const boot = document.querySelector<HTMLDivElement>('#boot')!;
@@ -411,7 +411,7 @@ function renderBoard() {
   ).join('');
   const activeLine = missions.active
     ? `<span style="color:#ffd23e">ACTIVE: ${missions.active.title} · [0] abandon</span>`
-    : `<span style="color:#b8b8d8">[1-3] accept · E close</span>`;
+    : `<span style="color:#b8b8d8">[1-4] accept · E close</span>`;
   hud.setMarket(
     `<b>CONTRACTS BOARD (MINISTRY-ADJACENT, DENIABLE)</b><br>${activeLine}` +
     `<table style="width:100%;border-collapse:collapse">${rows}</table>`
@@ -426,7 +426,7 @@ document.addEventListener('keydown', (e) => {
     renderBoard();
     return;
   }
-  const idx = ['Digit1', 'Digit2', 'Digit3'].indexOf(e.code);
+  const idx = ['Digit1', 'Digit2', 'Digit3', 'Digit4'].indexOf(e.code);
   if (idx < 0) return;
   const m = missions.accept(idx);
   if (m) {
@@ -583,6 +583,19 @@ function finalizeDock(spot: DockSpot) {
   if (m?.kind === 'deliver' && spot.name === m.targetDock) {
     if (player.remove(m.commodityId!, m.qty)) missionPayout();
     else hud.say(`THE RECIPIENT AWAITS ${m.qty}x CARGO YOU DO NOT HAVE. AWKWARD.`, 5);
+  }
+  // wild goose contracts: the quarry was here. it isn't now.
+  if (m?.kind === 'goose') {
+    const result = missions.gooseArrived(spot.name, dockSpots.map((d) => d.name));
+    if (result === 'moved') {
+      hud.say(
+        `${GOOSE_HOPS[(m.id + missions.progress) % GOOSE_HOPS.length]} NEW TRACE: ${m.targetDock}.`, 7
+      );
+      pipeline.triggerGlitch(0.4);
+    } else if (result === 'done') {
+      hud.say(GOOSE_ENDINGS[m.id % GOOSE_ENDINGS.length], 8);
+      missionPayout();
+    }
   }
   pipeline.triggerGlitch(0.6);
   audio.glitchBurst();
@@ -798,6 +811,12 @@ function frame(now: number) {
     }
   }
 
+  // atmosphere field breathes; the neon sign has a loose connection
+  const atmo = world.scene.getObjectByName('atmo-field') as THREE.Mesh | undefined;
+  if (atmo) (atmo.material as THREE.MeshBasicMaterial).opacity = 0.09 + Math.sin(t * 1.7) * 0.045;
+  const neon = world.scene.getObjectByName('bar-neon') as THREE.Mesh | undefined;
+  if (neon) (neon.material as THREE.MeshBasicMaterial).opacity = Math.random() > 0.03 ? 1 : 0.35;
+
   // derelict ceiling light flickers like it's narrating
   const flick = world.scene.getObjectByName('derelict-flicker') as THREE.PointLight | undefined;
   if (flick) flick.intensity = Math.random() > 0.12 ? 9 : 1.5;
@@ -856,6 +875,7 @@ function frame(now: number) {
     );
 
     audio.setThrust(flight.thrusting ? 0.4 + (flight.speed / 90) * 0.6 : (flight.speed / 90) * 0.3);
+    ship.setThrustVisual(flight.thrusting ? 0.5 + (flight.speed / 90) * 0.5 : 0, dt);
   }
 
   // combat + danger music; a roof overhead means bolts can't reach you

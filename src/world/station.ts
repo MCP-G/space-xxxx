@@ -96,6 +96,7 @@ export function buildStation(): World {
     side: THREE.DoubleSide,
   });
   const field = new THREE.Mesh(new THREE.PlaneGeometry(10, 5.2), fieldMat);
+  field.name = 'atmo-field';
   field.position.set(0, 2.6, -16.25);
   field.userData.guideTitle = 'ATMOSPHERE RETENTION FIELD';
   field.userData.guideText =
@@ -135,6 +136,34 @@ export function buildStation(): World {
   box(world, 0.6, 0.5, 0.05, -3.5, 1.4, 17.28, PALETTE.trim, { collide: false, emissive: true });
 
   // NPCs are downloaded GLB characters, loaded async by main (see NPC_SPAWNS)
+
+  // neon sign over the bar entrance: subtle as a flare gun
+  {
+    const c = document.createElement('canvas');
+    c.width = 512; c.height = 96;
+    const ctx = c.getContext('2d')!;
+    ctx.fillStyle = 'rgba(0,0,0,0)';
+    ctx.font = 'bold 40px monospace';
+    ctx.textAlign = 'center';
+    ctx.shadowColor = '#ff2e88';
+    ctx.shadowBlur = 22;
+    ctx.fillStyle = '#ff7ab8';
+    ctx.fillText('THE RESTAURANT', 256, 42);
+    ctx.font = 'bold 26px monospace';
+    ctx.shadowColor = '#7fffd4';
+    ctx.fillStyle = '#a8ffe8';
+    ctx.fillText('AT THE END OF THE CORRIDOR', 256, 78);
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    const sign = new THREE.Mesh(
+      new THREE.PlaneGeometry(3.4, 0.64),
+      new THREE.MeshBasicMaterial({ map: tex, transparent: true })
+    );
+    sign.name = 'bar-neon';
+    sign.position.set(0, 3.55, 10.04);
+    sign.rotation.y = Math.PI; // faces the corridor approach
+    scene.add(sign);
+  }
 
   // --- detail furniture: the difference between a level and a place
   // corridor pipes
@@ -275,4 +304,10 @@ export const TERMINAL_LINES = [
   'DOCKING FEES ARE WAIVED FOR VESSELS THAT CAN PROVE THEY DO NOT EXIST.',
   'THE MINISTRY OF IMMUTABLE AFFAIRS THANKS YOU FOR YOUR IMMUTABILITY.',
   'LOST PROPERTY: ONE (1) SENSE OF PURPOSE. APPLY DECK 9. DECK 9 IS MISSING.',
+  'GRAVITY WILL BE INTERMITTENT BETWEEN 0300 AND 0300. PLAN ACCORDINGLY.',
+  'A REMINDER: THE AIRLOCKS ARE NOT A SHORTCUT. THEY ARE A LONGCUT.',
+  'TODAY\'S LOTTERY NUMBERS ARE THE SAME AS YESTERDAY\'S. NOBODY HAS WON SINCE THE INCIDENT.',
+  'PLEASE DO NOT GRAFFITI THE GRAFFITI. IT IS HERITAGE NOW.',
+  'THE PLANETS VISIBLE FROM DECK 7 ARE NOT ACCEPTING VISITORS. OR APOLOGIES.',
+  'YOUR CALL IS IMPORTANT TO US. YOUR ARRIVAL WAS A SURPRISE.',
 ];

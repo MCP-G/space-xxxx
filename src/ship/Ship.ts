@@ -201,6 +201,19 @@ export class Ship {
 
     this.buildCockpitGlass();
 
+    // thruster flares: cones of light that stretch with the burn
+    const flareMat = new THREE.MeshBasicMaterial({
+      color: PALETTE.trim, transparent: true, opacity: 0.75, depthWrite: false,
+    });
+    for (const sx of [-2.6, 2.6]) {
+      const flare = new THREE.Mesh(new THREE.ConeGeometry(0.45, 2.2, 10, 1, true), flareMat);
+      flare.position.set(sx, 1.2, 3.8);
+      flare.rotation.x = -Math.PI / 2;
+      flare.scale.set(1, 0.01, 1);
+      this.flares.add(flare);
+    }
+    this.group.add(this.flares);
+
     this.group.userData.guideTitle = 'THE HEART OF MILD INCONVENIENCE';
     this.group.userData.guideText =
       'A freighter. Top speed: adequate. Insurance status: philosophical.';
@@ -253,6 +266,18 @@ export class Ship {
   private externalModel: THREE.Object3D | null = null;
   /** Canopy glass + frame, visible only from the pilot seat. */
   readonly cockpitGlass = new THREE.Group();
+  /** Engine flares; scale follows thrust via setThrustVisual. */
+  readonly flares = new THREE.Group();
+  private flareLevel = 0;
+
+  /** 0..1 — stretches the engine cones; eases so burns feel weighty. */
+  setThrustVisual(level: number, dt: number) {
+    this.flareLevel += (level - this.flareLevel) * Math.min(1, dt * 8);
+    const s = Math.max(0.01, this.flareLevel);
+    for (const f of this.flares.children) {
+      f.scale.set(0.6 + s * 0.6, s * (1.6 + Math.random() * 0.5), 0.6 + s * 0.6);
+    }
+  }
 
   private buildCockpitGlass() {
     const glassMat = new THREE.MeshStandardMaterial({

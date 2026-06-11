@@ -26,7 +26,7 @@ export interface Asteroid {
 
 export interface Poi {
   name: string;
-  kind: 'asteroids' | 'derelict' | 'beacon' | 'wreck' | 'nebula' | 'monolith';
+  kind: 'asteroids' | 'derelict' | 'beacon' | 'wreck' | 'nebula' | 'monolith' | 'planet';
   position: THREE.Vector3;
   /** Dockable pad: ship parks here, player can walk the pad. */
   dock?: {
@@ -67,6 +67,9 @@ export const DERELICT_LOGS = [
   'LOG 4413: THE CARGO IS HUMMING IN B FLAT. REQUESTING HAZARD PAY.',
   'LOG 4414: CREW VOTE HELD. UNANIMOUS DECISION: "WE QUIT." EVEN THE NOISE VOTED.',
   'LOG 4415 (AUTOMATED): LIFE SUPPORT IDLE. PLANTS DOING FINE WITHOUT YOU, FRANKLY.',
+  'LOG 4416 (AUTOMATED): A SHIP DOCKED. SOMEONE READ THE LOGS. HELLO, SOMEONE.',
+  'LOG 4417 (AUTOMATED): THE NOISE WOULD LIKE ITS LOG ENTRIES BACK.',
+  'LOG 4418 (AUTOMATED): VISIBLE PLANET COUNT UNCHANGED. PLANETS REMAIN ALOOF.',
 ];
 
 function rockMat() {
@@ -536,6 +539,103 @@ export function buildSector(world: World, seed: number): Sector {
     guideTitle: 'THE MONOLITH',
     guideText: 'Ratio 1:4:9. It is not transmitting. It is, however, judging.',
   });
+
+  // --- planets: enormous, indifferent, mostly harmless
+  const PLANET_NAMES: [string, string][] = [
+    ['BRUNCH', 'Tidally locked. One hemisphere is always 11am.'],
+    ['NEW SLOUGH', 'Twinned with Old Slough, which is also here, administratively.'],
+    ['PRAXIBETEL B', 'Population: disputed. The dispute has its own population.'],
+    ['TAXHAVEN IX', 'Gravity declared as a business expense.'],
+    ['DENTRASSI PRIME', 'Excellent catering. Do not ask what it is.'],
+    ['MOSTLY HARMLESS', 'Revised entry. The revision is also mostly harmless.'],
+    ['B-AND-B WORLD', 'Continental breakfast served at continental scale.'],
+    ['THE LONG QUEUE', 'A gas giant. The queue is for the surface. There is no surface.'],
+  ];
+  const planetTexture = (style: number): THREE.Texture | null => {
+    if (typeof document === 'undefined') return null;
+    const c = document.createElement('canvas');
+    c.width = 512; c.height = 256;
+    const ctx = c.getContext('2d')!;
+    const palettes = [
+      ['#3a2148', '#6a3a78', '#ff2e88', '#2a1838'],   // hot pink giant
+      ['#16323a', '#2a5a4a', '#7fffd4', '#0e2028'],   // mint storm
+      ['#3a3148', '#5a4a38', '#ffd23e', '#241a20'],   // amber dust
+      ['#1a2030', '#2a3a5a', '#9fd8ff', '#101420'],   // ice
+    ];
+    const pal = palettes[style % palettes.length];
+    ctx.fillStyle = pal[3];
+    ctx.fillRect(0, 0, 512, 256);
+    // latitudinal bands with wobble
+    for (let y = 0; y < 256; y += 4) {
+      const band = pal[Math.floor((Math.sin(y * 0.07 + style) + 1) * 1.49) % 3];
+      ctx.fillStyle = band;
+      ctx.globalAlpha = 0.5 + Math.sin(y * 0.21) * 0.3;
+      const wob = Math.sin(y * 0.12 + style * 2) * 14;
+      ctx.fillRect(0, y + wob * 0.1, 512, 3.2);
+      void wob;
+    }
+    // storms
+    ctx.globalAlpha = 0.55;
+    for (let i = 0; i < 7; i++) {
+      ctx.fillStyle = pal[i % 3];
+      ctx.beginPath();
+      ctx.ellipse(rnd() * 512, 40 + rnd() * 176, 14 + rnd() * 40, 6 + rnd() * 12, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  };
+  const planetCount = 2 + Math.floor(rnd() * 2);
+  const nameOffset = Math.floor(rnd() * PLANET_NAMES.length);
+  for (let i = 0; i < planetCount; i++) {
+    const [pname, pguide] = PLANET_NAMES[(nameOffset + i * 3) % PLANET_NAMES.length];
+    const radius = 70 + rnd() * 90;
+    const dir = (i / planetCount) * Math.PI * 2 + rnd() * 1.2;
+    const dist = 650 + rnd() * 400;
+    const pos = new THREE.Vector3(
+      Math.cos(dir) * dist,
+      (rnd() - 0.5) * 300,
+      -200 + Math.sin(dir) * dist
+    );
+    const tex = planetTexture(i + Math.floor(rnd() * 4));
+    const mat = tex
+      ? new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9, metalness: 0 })
+      : new THREE.MeshStandardMaterial({ color: 0x6a3a78, roughness: 0.9 });
+    mat.fog = false; // planets live beyond the fog, like the stars
+    const planet = new THREE.Mesh(new THREE.SphereGeometry(radius, 48, 32), mat);
+    planet.position.copy(pos);
+    planet.rotation.z = (rnd() - 0.5) * 0.5;
+    planet.userData.guideTitle = pname;
+    planet.userData.guideText = pguide;
+    scene.add(planet);
+    float(planet, 0, 0.004 + rnd() * 0.004);
+    // ring system for the lucky ones
+    if (rnd() > 0.55) {
+      const ring = new THREE.Mesh(
+        new THREE.RingGeometry(radius * 1.35, radius * 1.9, 64),
+        new THREE.MeshBasicMaterial({
+          color: [0xff2e88, 0x7fffd4, 0xffd23e][i % 3],
+          transparent: true, opacity: 0.18, side: THREE.DoubleSide, fog: false,
+        })
+      );
+      ring.position.copy(pos);
+      ring.rotation.x = Math.PI / 2 + (rnd() - 0.5) * 0.6;
+      scene.add(ring);
+    }
+    // a soft rim light so it reads against the void
+    const rim = new THREE.PointLight(0xfff0d8, radius * 2, radius * 6, 1.8);
+    rim.position.copy(pos).add(new THREE.Vector3(radius * 1.6, radius, -radius));
+    scene.add(rim);
+    sector.pois.push({
+      name: pname,
+      kind: 'planet',
+      position: pos,
+      guideTitle: pname,
+      guideText: pguide,
+    });
+  }
 
   // --- cyber decay: every outpost has been tagged, littered, abandoned
   // (guarded: canvas textures need a DOM; node tests build sectors too)

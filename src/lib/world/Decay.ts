@@ -32,6 +32,12 @@ const SLOGANS = [
   ['PRODUCTIVITY IS IMMORTALITY', 'neither is available'],
   ['YOUR TOWEL IS YOUR FRIEND', 'your only friend. statistically.'],
   ['THIS WALL INTENTIONALLY BLANK', 'until it wasn\'t'],
+  ['VISIT BRUNCH', 'the planet, not the meal. the meal is cancelled.'],
+  ['SPACE: STILL BIG', 'ministry of scale, annual report'],
+  ['LITTERING IS A CRIME', 'crime is a growth sector'],
+  ['BE THE DRONE YOU FEAR', 'wellness directive 12'],
+  ['QUEUE HERE FOR HOPE', 'queue relocated. ask the queue.'],
+  ['THE GOOSE IS REAL', 'the chase, however, is sponsored'],
 ] as const;
 
 const TAGS = [
@@ -40,6 +46,8 @@ const TAGS = [
   'I DREAM OF SHEEP', 'FREE THE MAINFRAME', '▲▲▼▼◀▶◀▶', 'TAX THE MINISTRY',
   'HUM B♭', 'WAKE ME WHEN ITS OVER', 'SEGFAULT CITY', 'NO GODS NO ADMINS',
   '404 EVERYTHING', 'THE QUEUE IS A LIE', '<eat_static/>', 'GLITCH IS TRUTH',
+  'HONK IF U COMPILE', 'B♭ 4EVER', 'MY OTHER BODY IS A SHIP', 'VOID WAS HERE',
+  'DECK 9 LIVES', 'PAY UR TAB', 'GOOSE GANG', 'I SAW THE SIGNAL. IT WINKED.',
 ] as const;
 
 const POSTER_INKS = ['#ff2e88', '#7fffd4', '#ffd23e', '#9fd8ff', '#c0c0e8'];

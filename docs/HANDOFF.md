@@ -3,7 +3,29 @@
 *Last updated: June 2026 (post-R2 + decay pass). Everything below is
 implemented, committed, and verified in-browser unless marked otherwise.*
 
-## Latest session: canopy, windows, docking cinematics
+## Latest session: planets, goose chases, embellishments
+
+- **Planets** (sector.ts): 2-3 per sector, seeded — banded canvas
+  textures (4 palettes), storm ellipses, optional tilted rings, rim
+  point-light, slow rotation via floaters, `fog: false` (same trap as
+  stars). POI kind `'planet'`, nav-targetable, Adams names + guide jokes
+  (BRUNCH, TAXHAVEN IX, THE LONG QUEUE…). Not dockable (by design:
+  "not accepting visitors. or apologies.").
+- **Wild goose chases** (missions.ts kind `'goose'`): 4th board offer.
+  Multi-hop pursuit — target dock keeps relocating via
+  `gooseArrived(dockName, allDocks)` (deterministic hop choice), flavor
+  toast per hop (GOOSE_HOPS), paid punchline at the end (GOOSE_ENDINGS).
+  Board accepts [1-4] now. Verified end-to-end: 4 hops, 378¢.
+- **Embellishments**: ship thruster flares (`Ship.setThrustVisual`,
+  eased cones behind the pods), neon bar sign with a loose connection
+  (canvas texture, random flicker), breathing atmosphere field
+  (named 'atmo-field', opacity sine), +7 terminal lines, +3 derelict
+  logs, +6 slogans, +8 graffiti tags.
+- **docs/REPORT.md** — "the report of everything, ever": full project
+  chronicle, stats, engineering lessons. Keep it updated each session
+  alongside this handoff.
+
+## Previous session: canopy, windows, docking cinematics
 
 - **Cockpit canopy** (`Ship.buildCockpitGlass`): raked glass pane + frame
   rails/pillars/center strut, visible only in pilot view (toggled by

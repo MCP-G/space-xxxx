@@ -4,7 +4,7 @@ import { COMMODITIES } from './economy';
 // The contracts board: gainful employment for people with a ship, a blaster,
 // and no questions. Three offers at a time, one active job, payment on
 // completion, satisfaction not guaranteed or indeed mentioned.
-export type MissionKind = 'deliver' | 'clear' | 'salvage';
+export type MissionKind = 'deliver' | 'clear' | 'salvage' | 'goose';
 
 export interface Mission {
   id: number;
@@ -32,6 +32,25 @@ const SALVAGE_FLAVOR = [
   'One entity\'s catastrophe is another\'s procurement strategy.',
   'The Ministry classifies this as "recycling with ambition".',
   'Finders keepers is, in this sector, settled case law.',
+];
+const GOOSE_TITLES = [
+  'INVESTIGATE: UNEXPLAINED SIGNAL',
+  'LOCATE: THE AUDITOR\'S LOST BRIEFCASE',
+  'PURSUE: UNLICENSED JOY EMISSION',
+  'TRACK: A SMELL (CATEGORY 4)',
+];
+export const GOOSE_HOPS = [
+  'THE SIGNAL HAS MOVED. IT LEFT A NOTE: "LOL."',
+  'YOU JUST MISSED IT. WITNESSES DESCRIBE IT AS "SMUG."',
+  'TRAIL WARM. ALSO STICKY. PROCEED TO NEXT COORDINATES.',
+  'IT WAS HERE. IT BOUGHT PEANUTS. IT LEFT.',
+  'SENSOR GHOST RELOCATED, CITING RENT.',
+];
+export const GOOSE_ENDINGS = [
+  'IT WAS A WEATHER BALLOON. THERE IS NO WEATHER. PAYMENT ANYWAY.',
+  'THE SIGNAL WAS YOUR OWN SHIP, REFLECTED. THE MINISTRY PAYS FOR DISCRETION.',
+  'CASE CLOSED: THE BRIEFCASE NEVER EXISTED. THE EXPENSES DID.',
+  'THE SMELL HAS BEEN PROMOTED TO MANAGEMENT. INVESTIGATION MOOT.',
 ];
 
 export class MissionBoard {
@@ -67,6 +86,17 @@ export class MissionBoard {
           desc: CLEAR_FLAVOR[id % CLEAR_FLAVOR.length],
         };
       }
+      if (kind === 'goose') {
+        const hops = 3 + Math.floor(rnd() * 2);
+        const target = rnd() > 0.5 ? 'NAV BEACON' : 'WRECK FIELD';
+        return {
+          id, kind, qty: hops,
+          targetDock: target,
+          reward: 90 * hops + Math.floor(rnd() * 80),
+          title: GOOSE_TITLES[id % GOOSE_TITLES.length],
+          desc: `Last detected near ${target}. The Ministry stresses this is definitely not a waste of your time.`,
+        };
+      }
       const qty = 3 + Math.floor(rnd() * 3);
       return {
         id, kind, qty,
@@ -75,7 +105,7 @@ export class MissionBoard {
         desc: `Ore or scrap, picked up anywhere but bought nowhere. ${SALVAGE_FLAVOR[id % SALVAGE_FLAVOR.length]}`,
       };
     };
-    this.offers = [mk('deliver'), mk('clear'), mk('salvage')];
+    this.offers = [mk('deliver'), mk('clear'), mk('salvage'), mk('goose')];
     this.save();
   }
 
@@ -113,9 +143,26 @@ export class MissionBoard {
     return reward;
   }
 
+  /**
+   * Wild-goose hop: called when the player docks somewhere while a goose
+   * contract is active. If they found the current trail point, the quarry
+   * either moves (returns the new target) or is finally cornered.
+   */
+  gooseArrived(dockName: string, allDocks: string[]): 'cold' | 'moved' | 'done' {
+    const m = this.active;
+    if (!m || m.kind !== 'goose' || dockName !== m.targetDock) return 'cold';
+    this.progress++;
+    if (this.progress >= m.qty) return 'done';
+    const options = allDocks.filter((d) => d !== dockName);
+    m.targetDock = options[(m.id * 7 + this.progress * 13) % options.length];
+    this.save();
+    return 'moved';
+  }
+
   statusLine(): string {
     if (!this.active) return '';
     const m = this.active;
+    if (m.kind === 'goose') return `JOB: ${m.title} → ${m.targetDock} (${this.progress}/${m.qty}) → ${m.reward}¢`;
     const p = m.kind === 'deliver' ? '' : ` ${this.progress}/${m.qty}`;
     return `JOB: ${m.title}${p} → ${m.reward}¢`;
   }
