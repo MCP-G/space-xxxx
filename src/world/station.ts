@@ -168,6 +168,62 @@ export function buildStation(): World {
   scene.add(lounger);
   world.guideMeshes.push(lounger as unknown as THREE.Mesh);
 
+  // --- detail furniture: the difference between a level and a place
+  // corridor pipes
+  for (const side of [-1.6, 1.6]) {
+    const pipe = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.08, 0.08, 10, 8),
+      new THREE.MeshLambertMaterial({ color: 0x4a4060 })
+    );
+    pipe.rotation.x = Math.PI / 2;
+    pipe.position.set(side, 2.6, 5);
+    scene.add(pipe);
+  }
+  // ceiling light fixtures down the corridor + rooms
+  const fixtureMat = new THREE.MeshBasicMaterial({ color: 0xfff0d8 });
+  for (const [fx, fy, fz] of [[0, 2.95, 2], [0, 2.95, 8], [0, 5.95, -8], [0, 3.95, 14]] as const) {
+    const fixture = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.06, 0.3), fixtureMat);
+    fixture.position.set(fx, fy, fz);
+    scene.add(fixture);
+  }
+  // bar stools
+  for (let i = 0; i < 3; i++) {
+    box(world, 0.5, 0.7, 0.5, -1.2 + i * 1.2, 0.35, 15.4, PALETTE.wall);
+  }
+  // bottles behind the bar: the inventory is one drink in many costumes
+  for (let i = 0; i < 6; i++) {
+    const bottle = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.06, 0.08, 0.34, 6),
+      new THREE.MeshLambertMaterial({
+        color: [0x4aff9a, 0xff2e88, 0xffd23e, 0x9fd8ff][i % 4],
+        emissive: new THREE.Color(0x102010),
+      })
+    );
+    bottle.position.set(-1.4 + i * 0.55, 1.35, 17.9);
+    scene.add(bottle);
+  }
+  box(world, 4, 0.08, 0.5, 0, 1.16, 17.9, PALETTE.wall, { collide: false }); // shelf
+  // wall posters (departures that will not be departing)
+  const posterA = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 1), new THREE.MeshBasicMaterial({ color: 0x2a4438 }));
+  posterA.position.set(-5.18, 2, 13);
+  posterA.rotation.y = Math.PI / 2;
+  posterA.userData.guideTitle = 'DEPARTURES BOARD';
+  posterA.userData.guideText = 'ALL SERVICES: DELAYED. REASON: TIME IS A SUGGESTION.';
+  scene.add(posterA);
+  world.guideMeshes.push(posterA as THREE.Mesh);
+  const posterB = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 1.6), new THREE.MeshBasicMaterial({ color: 0x55092b }));
+  posterB.position.set(5.18, 2, 15);
+  posterB.rotation.y = -Math.PI / 2;
+  posterB.userData.guideTitle = 'MOTIVATIONAL POSTER';
+  posterB.userData.guideText = '"THE VOID IS NOT REQUIRED TO CARE. BE THE VOID." — Ministry HR';
+  scene.add(posterB);
+  world.guideMeshes.push(posterB as THREE.Mesh);
+  // vending machine, hangar corner
+  box(world, 1, 2, 0.8, -7.4, 1, -1.5, PALETTE.dark, {
+    guide: ['VENDING MACHINE', 'Stock: peanuts (emergency), peanuts (recreational), one (1) towel.'],
+  });
+  box(world, 0.7, 0.9, 0.05, -7.4, 1.3, -1.08, PALETTE.trim, { collide: false, emissive: true });
+
   // clutter crates
   box(world, 1.2, 1.2, 1.2, -5.5, 0.6, -12, PALETTE.accentA, {
     guide: ['CRATE (PINK)', 'Contents: 4,000 commemorative towels. Unclaimed.'],

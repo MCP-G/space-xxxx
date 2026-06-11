@@ -8,9 +8,13 @@ import { PALETTE } from '../world/station';
 const DRONE_COUNT = 3;
 const DRONE_HP = 2;
 const DRONE_RANGE = 90;
-const BOLT_SPEED = 38;
-const BOLT_LIFE = 3.5;
-const FIRE_INTERVAL = 2.4;
+const BOLT_SPEED = 24;      // dodgeable on foot if you keep moving
+const BOLT_LIFE = 4;
+const BOLT_DAMAGE = 8;
+const FIRE_INTERVAL = 3.4;
+const DRONE_RING = 26;      // preferred standoff distance from target
+const DRONE_SPEED = 7;
+const DODGE_SPEED = 16;
 
 export interface Weapon {
   id: string;
@@ -35,11 +39,17 @@ export const WEAPONS: Weapon[] = [
 ];
 
 interface Drone {
-  mesh: THREE.Mesh;
+  mesh: THREE.Group;          // full model; position drives everything
+  core: THREE.Mesh;
+  ring: THREE.Mesh;
+  eye: THREE.Mesh;
   hp: number;
   fireTimer: number;
   orbit: number;
   home: THREE.Vector3;
+  vel: THREE.Vector3;
+  dodgeTimer: number;
+  strafeDir: 1 | -1;
 }
 
 interface Bolt {
@@ -102,14 +112,64 @@ export class CombatSystem {
     const derelict = sector.pois.find((p) => p.kind === 'derelict');
     if (!derelict) return;
     for (let i = 0; i < DRONE_COUNT; i++) {
-      const mesh = new THREE.Mesh(new THREE.OctahedronGeometry(1.1), this.droneMat);
-      mesh.userData.guideTitle = 'LOSS-PREVENTION DRONE';
-      mesh.userData.guideText = 'Still guarding inventory that no longer exists. Commendable. Hostile.';
+      const { group, core, ring, eye } = this.buildDroneModel();
+      group.userData.guideTitle = 'LOSS-PREVENTION DRONE';
+      group.userData.guideText = 'Still guarding inventory that no longer exists. Commendable. Hostile.';
       const home = derelict.position.clone().add(new THREE.Vector3((i - 1) * 14, 6 + i * 3, 10));
-      mesh.position.copy(home);
-      this.root.add(mesh);
-      this.drones.push({ mesh, hp: DRONE_HP, fireTimer: 1 + i, orbit: i * 2.1, home });
+      group.position.copy(home);
+      this.root.add(group);
+      this.drones.push({
+        mesh: group, core, ring, eye,
+        hp: DRONE_HP, fireTimer: 1 + i, orbit: i * 2.1, home,
+        vel: new THREE.Vector3(), dodgeTimer: 0, strafeDir: i % 2 === 0 ? 1 : -1,
+      });
     }
+  }
+
+  /** A drone that looks like equipment, not geometry homework. */
+  private buildDroneModel() {
+    const group = new THREE.Group();
+    const dark = new THREE.MeshLambertMaterial({ color: 0x2a2438 });
+    // core: the pink business end
+    const core = new THREE.Mesh(new THREE.OctahedronGeometry(0.75, 1), this.droneMat);
+    group.add(core);
+    // equatorial gyro ring
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(1.25, 0.12, 8, 24), dark);
+    ring.rotation.x = Math.PI / 2;
+    group.add(ring);
+    // staring eye, front and center
+    const eye = new THREE.Mesh(
+      new THREE.SphereGeometry(0.28, 10, 8),
+      new THREE.MeshBasicMaterial({ color: 0xffffff })
+    );
+    eye.position.set(0, 0, 0.7);
+    group.add(eye);
+    const pupil = new THREE.Mesh(
+      new THREE.SphereGeometry(0.12, 8, 6),
+      new THREE.MeshBasicMaterial({ color: 0x14141f })
+    );
+    pupil.position.set(0, 0, 0.95);
+    group.add(pupil);
+    // antennae + clamp arms
+    for (const sx of [-1, 1]) {
+      const ant = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.9, 4), dark);
+      ant.position.set(sx * 0.45, 0.95, 0);
+      ant.rotation.z = sx * -0.25;
+      group.add(ant);
+      const tip = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 5), new THREE.MeshBasicMaterial({ color: 0xff3030 }));
+      tip.position.set(sx * 0.56, 1.38, 0);
+      group.add(tip);
+      const arm = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.5, 0.12), dark);
+      arm.position.set(sx * 1.0, -0.7, 0.2);
+      arm.rotation.x = 0.5;
+      group.add(arm);
+    }
+    // bottom emitter (where the regrettable bolts come from)
+    const emitter = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.5, 8), this.boltMat);
+    emitter.position.set(0, -0.85, 0);
+    emitter.rotation.x = Math.PI;
+    group.add(emitter);
+    return { group, core, ring, eye };
   }
 
   inDanger(target: THREE.Vector3): boolean {
@@ -152,8 +212,11 @@ export class CombatSystem {
   private applyHit(drone: Drone, damage: number) {
     drone.hp -= damage;
     drone.mesh.scale.setScalar(0.7);
-    drone.mesh.material = this.droneHitMat;
-    setTimeout(() => { drone.mesh.material = this.droneMat; }, 90);
+    drone.core.material = this.droneHitMat;
+    setTimeout(() => { drone.core.material = this.droneMat; }, 90);
+    // getting shot teaches them to juke
+    drone.dodgeTimer = 0.9;
+    drone.strafeDir = (Math.random() > 0.5 ? 1 : -1) as 1 | -1;
     this.addSpark(drone.mesh.position.clone(), 0xffffff);
     if (drone.hp <= 0) {
       drone.mesh.visible = false;
@@ -215,18 +278,47 @@ export class CombatSystem {
     for (const d of this.drones) {
       if (d.hp <= 0) continue;
       d.mesh.scale.lerp(new THREE.Vector3(1, 1, 1), dt * 6);
-      d.orbit += dt * 0.5;
-      d.mesh.position.x = d.home.x + Math.cos(d.orbit) * 8;
-      d.mesh.position.z = d.home.z + Math.sin(d.orbit) * 8;
-      d.mesh.position.y = d.home.y + Math.sin(t * 1.3 + d.orbit) * 2;
-      d.mesh.rotation.y = t * 2;
+      d.orbit += dt * 0.45;
+      d.dodgeTimer = Math.max(0, d.dodgeTimer - dt);
 
       const distToTarget = d.mesh.position.distanceTo(target);
-      if (distToTarget < DRONE_RANGE && !shielded) {
+      const engaged = distToTarget < DRONE_RANGE && !shielded;
+
+      // steering: hold a slowly-rotating point on a standoff ring around the
+      // target while engaged; drift home when bored; juke sideways when shot
+      const desired = new THREE.Vector3();
+      if (engaged) {
+        desired.set(
+          target.x + Math.cos(d.orbit) * DRONE_RING,
+          target.y + 6 + Math.sin(t * 0.7 + d.orbit) * 3,
+          target.z + Math.sin(d.orbit) * DRONE_RING
+        );
+      } else {
+        desired.copy(d.home);
+      }
+      const steer = desired.sub(d.mesh.position).clampLength(0, DRONE_SPEED);
+      d.vel.lerp(steer, dt * 1.6);
+      if (d.dodgeTimer > 0) {
+        const toT = target.clone().sub(d.mesh.position).normalize();
+        const side = new THREE.Vector3(-toT.z, 0, toT.x).multiplyScalar(DODGE_SPEED * d.strafeDir);
+        d.vel.lerp(side, dt * 4);
+      }
+      d.mesh.position.addScaledVector(d.vel, dt);
+
+      // face the target, spin the gyro ring, hover-bob
+      if (engaged) d.mesh.lookAt(target);
+      d.ring.rotation.z = t * 3;
+      d.mesh.position.y += Math.sin(t * 2 + d.orbit) * 0.01;
+
+      if (engaged) {
         d.fireTimer -= dt;
         if (d.fireTimer <= 0) {
           d.fireTimer = FIRE_INTERVAL;
+          // slightly imperfect aim: a moving player can genuinely dodge
           const dir = target.clone().sub(d.mesh.position).normalize();
+          dir.x += (Math.random() - 0.5) * 0.08;
+          dir.y += (Math.random() - 0.5) * 0.08;
+          dir.normalize();
           const mesh = new THREE.Mesh(this.boltGeo, this.boltMat);
           mesh.position.copy(d.mesh.position);
           this.root.add(mesh);
@@ -241,7 +333,7 @@ export class CombatSystem {
       b.life -= dt;
       b.mesh.position.addScaledVector(b.velocity, dt);
       if (!shielded && b.mesh.position.distanceTo(target) < targetRadius) {
-        this.events.onPlayerHit(12);
+        this.events.onPlayerHit(BOLT_DAMAGE);
         this.addSpark(b.mesh.position.clone(), PALETTE.accentB, 0.5);
         b.life = 0;
       }

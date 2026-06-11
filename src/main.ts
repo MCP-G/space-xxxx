@@ -616,11 +616,11 @@ function flightCollisions() {
 
 // --- ambient pulses
 setInterval(() => {
-  if (Math.random() < 0.2) {
-    pipeline.triggerGlitch(0.3 + Math.random() * 0.5);
+  if (Math.random() < 0.08) {
+    pipeline.triggerGlitch(0.15 + Math.random() * 0.25);
     audio.glitchBurst();
   }
-}, 5000);
+}, 9000);
 
 boot.addEventListener('click', async () => {
   boot.style.display = 'none';
@@ -728,6 +728,10 @@ function frame(now: number) {
   }
   combat.update(dt, t, target, targetRadius, roofed);
   audio.setMode(combat.inDanger(target) ? 'danger' : mode === 'fly' ? 'flight' : 'station');
+  audio.setIntensity(
+    mode === 'fly' ? 0.15 + (flight.speed / 90) * 0.85 : walk.isMoving ? 0.45 : 0.08,
+    dt
+  );
 
   // salvage prompt proximity
   salvageInteract.enabled = salvageItems.some(

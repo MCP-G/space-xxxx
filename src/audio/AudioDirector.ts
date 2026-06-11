@@ -1,5 +1,7 @@
 import * as Tone from 'tone';
 
+const THREE_clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+
 /**
  * Procedural synth engine, M0 edition: one adaptive station groove.
  * Acid-ish bassline (16-step), euclidean hat pattern, drifting pad,
@@ -14,9 +16,13 @@ export class AudioDirector {
   private footSynth!: Tone.MembraneSynth;
   private padChannel!: Tone.Channel;
   private leadChannel!: Tone.Channel;
+  private kick!: Tone.MembraneSynth;
+  private hatChannel!: Tone.Channel;
   private thrustNoise!: Tone.Noise;
   private thrustGain!: Tone.Gain;
   private mode: MusicMode = 'station';
+  private intensity = 0;
+  private intensityClock = 0;
 
   async start() {
     if (this.started) return;
@@ -48,10 +54,11 @@ export class AudioDirector {
     ).start(0);
 
     // --- hats: euclidean-ish noise ticks
+    this.hatChannel = new Tone.Channel(0).connect(this.crusher);
     const hat = new Tone.NoiseSynth({
       noise: { type: 'white' },
       envelope: { attack: 0.001, decay: 0.03, sustain: 0 },
-    }).connect(this.crusher);
+    }).connect(this.hatChannel);
     hat.volume.value = -22;
     const hatSteps = [1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1];
     new Tone.Sequence(
@@ -60,13 +67,13 @@ export class AudioDirector {
     ).start(0);
 
     // --- kick: four on the floor, obviously
-    const kick = new Tone.MembraneSynth({
+    this.kick = new Tone.MembraneSynth({
       pitchDecay: 0.04,
       octaves: 6,
       envelope: { attack: 0.001, decay: 0.3, sustain: 0 },
     }).connect(this.master);
-    kick.volume.value = -6;
-    new Tone.Loop((time) => kick.triggerAttackRelease('C1', '8n', time), '4n').start(0);
+    this.kick.volume.value = -12; // quiet at rest; intensity brings it up
+    new Tone.Loop((time) => this.kick.triggerAttackRelease('C1', '8n', time), '4n').start(0);
 
     // --- pad: slow drifting chords, heavily crushed, very station-ambience
     this.padChannel = new Tone.Channel(0).connect(this.crusher);
@@ -125,21 +132,54 @@ export class AudioDirector {
     if (!this.started || mode === this.mode) return;
     this.mode = mode;
     if (mode === 'flight') {
-      Tone.getTransport().bpm.rampTo(140, 2);
       this.padChannel.volume.rampTo(-14, 1.5);
       this.leadChannel.volume.rampTo(0, 1.5);
       this.crusher.wet.rampTo(0.35, 1);
     } else if (mode === 'danger') {
-      Tone.getTransport().bpm.rampTo(152, 1);
       this.padChannel.volume.rampTo(-24, 0.8);
       this.leadChannel.volume.rampTo(3, 0.8);
       this.crusher.wet.rampTo(0.55, 0.5);
     } else {
-      Tone.getTransport().bpm.rampTo(124, 2);
       this.padChannel.volume.rampTo(0, 1.5);
       this.leadChannel.volume.rampTo(-60, 1.5);
       this.crusher.wet.rampTo(0.35, 1);
     }
+    this.applyIntensity(true);
+  }
+
+  /**
+   * Continuous intensity 0..1 — walking pace on foot, velocity in flight.
+   * Drives tempo, kick weight, and hat energy so the music audibly tracks
+   * how fast life is currently happening. Throttled internally.
+   */
+  setIntensity(level: number, dt: number) {
+    if (!this.started) return;
+    this.intensity = THREE_clamp(level, 0, 1);
+    this.intensityClock -= dt;
+    if (this.intensityClock <= 0) {
+      this.intensityClock = 0.4;
+      this.applyIntensity(false);
+    }
+  }
+
+  private lastBpm = 0;
+
+  private applyIntensity(immediate: boolean) {
+    const t = immediate ? 0.6 : 0.45;
+    const i = this.intensity;
+    const baseBpm = this.mode === 'station' ? 116 : this.mode === 'flight' ? 132 : 150;
+    const bpmSpread = this.mode === 'station' ? 12 : 22;
+    // bpm set discretely — TickSignal automation (rampTo) accumulates events
+    // and can hang the audio graph, so we snap in whole-bpm steps instead
+    const targetBpm = Math.round(baseBpm + i * bpmSpread);
+    if (targetBpm !== this.lastBpm) {
+      this.lastBpm = targetBpm;
+      Tone.getTransport().bpm.value = targetBpm;
+    }
+    // kick: a heartbeat when idle, a club when moving fast
+    this.kick.volume.rampTo(-14 + i * 10, t);
+    this.hatChannel.volume.rampTo(-6 + i * 6, t);
+    if (this.mode === 'flight') this.leadChannel.volume.rampTo(-6 + i * 8, t);
   }
 
   /**

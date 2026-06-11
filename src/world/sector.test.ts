@@ -48,12 +48,16 @@ describe('buildSector', () => {
     expect(layoutHash(1)).not.toBe(layoutHash(2));
   });
 
-  it('always produces the three M1 POI kinds with docks where promised', () => {
+  it('always produces the core POI kinds with docks where promised', () => {
     const sector = buildSector(emptyWorld(), 7);
-    const kinds = sector.pois.map((p) => p.kind).sort();
-    expect(kinds).toEqual(['asteroids', 'beacon', 'derelict']);
-    expect(sector.pois.find((p) => p.kind === 'beacon')?.dock).toBeDefined();
-    expect(sector.pois.find((p) => p.kind === 'derelict')?.dock).toBeDefined();
+    const kinds = sector.pois.map((p) => p.kind);
+    for (const k of ['asteroids', 'beacon', 'derelict', 'wreck', 'nebula', 'monolith']) {
+      expect(kinds).toContain(k);
+    }
+    for (const dockable of ['asteroids', 'beacon', 'derelict', 'wreck']) {
+      expect(sector.pois.find((p) => p.kind === dockable)?.dock).toBeDefined();
+    }
     expect(sector.asteroids.length).toBeGreaterThan(0);
+    expect(sector.salvage.length).toBeGreaterThanOrEqual(8);
   });
 });

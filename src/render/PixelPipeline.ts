@@ -3,7 +3,12 @@ import * as THREE from 'three';
 // Renders the scene into a low-res target, then upscales through a post
 // shader that quantizes to a palette with ordered dithering, plus scanline
 // and glitch passes. The internal resolution is the look — don't raise it.
-const INTERNAL_HEIGHT = 540;
+// Default 1080; override with ?res=540 etc. for weaker GPUs / testing.
+const INTERNAL_HEIGHT = (() => {
+  const q = new URLSearchParams(location.search).get('res');
+  const n = q ? parseInt(q, 10) : NaN;
+  return Number.isFinite(n) && n >= 120 ? n : 1080;
+})();
 
 const POST_VERT = /* glsl */ `
   varying vec2 vUv;
@@ -64,11 +69,11 @@ const POST_FRAG = /* glsl */ `
     // ordered dither, then quantize each channel to limited levels
     vec2 pix = floor(uv * uResolution);
     float d = bayer(pix);
-    float levels = 8.0;
+    float levels = 14.0;
     col = floor((col + d / levels) * levels + 0.5) / levels;
 
-    // subtle scanlines on internal rows
-    float scan = 0.92 + 0.08 * step(0.5, fract(pix.y * 0.5));
+    // whisper of scanlines on internal rows
+    float scan = 0.97 + 0.03 * step(0.5, fract(pix.y * 0.5));
     col *= scan;
 
     gl_FragColor = vec4(col, 1.0);
@@ -85,7 +90,6 @@ export class PixelPipeline {
 
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
-    this.renderer.setPixelRatio(1);
 
     this.target = new THREE.WebGLRenderTarget(16, 16, {
       minFilter: THREE.NearestFilter,
@@ -117,8 +121,12 @@ export class PixelPipeline {
   resize() {
     const w = window.innerWidth;
     const h = window.innerHeight;
+    const dpr = window.devicePixelRatio || 1;
+    // canvas buffer at device pixels; internal target never exceeds it
+    // (downscaling the dithered frame produces moiré)
+    this.renderer.setPixelRatio(dpr);
     this.renderer.setSize(w, h, false);
-    const ih = INTERNAL_HEIGHT;
+    const ih = Math.min(INTERNAL_HEIGHT, Math.round(h * dpr));
     const iw = Math.round((w / h) * ih);
     this.target.setSize(iw, ih);
     (this.postMaterial.uniforms.uResolution.value as THREE.Vector2).set(iw, ih);
@@ -150,7 +158,7 @@ export class PixelPipeline {
  * PS1-style vertex snapping: patch a material so vertices snap to a coarse
  * grid in clip space, giving the characteristic wobble.
  */
-export function applyVertexSnap(material: THREE.Material, snapRes = 96) {
+export function applyVertexSnap(material: THREE.Material, snapRes = 320) {
   material.onBeforeCompile = (shader) => {
     shader.uniforms.uSnapRes = { value: snapRes };
     shader.vertexShader = shader.vertexShader

@@ -24,7 +24,7 @@ export interface Asteroid {
 
 export interface Poi {
   name: string;
-  kind: 'asteroids' | 'derelict' | 'beacon';
+  kind: 'asteroids' | 'derelict' | 'beacon' | 'wreck' | 'nebula' | 'monolith';
   position: THREE.Vector3;
   /** Dockable pad: ship parks here, player can walk the pad. */
   dock?: {
@@ -97,11 +97,11 @@ export function buildSector(world: World, seed: number): Sector {
     return mesh;
   };
 
-  // --- starfield: two layers, tinted, plentiful
+  // --- starfield: three layers — tiny dust, mids, brights
   const starTints = [0xc0c0e8, 0xffffff, 0x9fd8ff, 0xffd8b0, 0xffb0d8];
-  for (let layer = 0; layer < 2; layer++) {
+  for (let layer = 0; layer < 3; layer++) {
     const starGeo = new THREE.BufferGeometry();
-    const starCount = layer === 0 ? 3200 : 1400;
+    const starCount = layer === 0 ? 4500 : layer === 1 ? 3200 : 1400;
     const pos = new Float32Array(starCount * 3);
     const col = new Float32Array(starCount * 3);
     const tint = new THREE.Color();
@@ -116,7 +116,11 @@ export function buildSector(world: World, seed: number): Sector {
     starGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     starGeo.setAttribute('color', new THREE.BufferAttribute(col, 3));
     const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({
-      vertexColors: true, size: layer === 0 ? 2 : 3.5, sizeAttenuation: false,
+      vertexColors: true,
+      size: layer === 0 ? 1 : layer === 1 ? 2.5 : 4,
+      sizeAttenuation: false,
+      opacity: layer === 0 ? 0.6 : 1,
+      transparent: layer === 0,
     }));
     scene.add(stars);
   }
@@ -155,7 +159,9 @@ export function buildSector(world: World, seed: number): Sector {
   padBox(scene, mPad, 12, 1, 0.3, minePadC.x, minePadY + 0.5, minePadC.z - 6, PALETTE.accentB, true);
   padBox(scene, mPad, 12, 1, 0.3, minePadC.x, minePadY + 0.5, minePadC.z + 6, PALETTE.accentB, true);
   padBox(scene, mPad, 0.3, 1, 12, minePadC.x - 6, minePadY + 0.5, minePadC.z, PALETTE.accentB, true);
-  padBox(scene, mPad, 0.3, 1, 12, minePadC.x + 6, minePadY + 0.5, minePadC.z, PALETTE.accentB, true);
+  // east rail split: gap in the middle opens onto the catwalk
+  padBox(scene, mPad, 0.3, 1, 4.8, minePadC.x + 6, minePadY + 0.5, minePadC.z - 3.6, PALETTE.accentB, true);
+  padBox(scene, mPad, 0.3, 1, 4.8, minePadC.x + 6, minePadY + 0.5, minePadC.z + 3.6, PALETTE.accentB, true);
   // prospector hut: tin shed, lived-in, recently fled
   padBox(scene, mPad, 3, 2.4, 3, minePadC.x + 3.8, minePadY + 1.2, minePadC.z - 3.8, PALETTE.wall);
   padBox(scene, mPad, 1, 1, 1, minePadC.x + 2, minePadY + 0.5, minePadC.z - 3.6, PALETTE.dark);
@@ -175,6 +181,40 @@ export function buildSector(world: World, seed: number): Sector {
     ore.rotation.set(i, i * 2, 0);
     ore.userData.guideTitle = 'ORE NODE';
     ore.userData.guideText = 'Technically the property of a mining concern that dissolved mid-sentence.';
+  }
+  // catwalk east to the crystal platform (rail gap in the pad's east side)
+  padBox(scene, mPad, 10, 0.5, 2.4, minePadC.x + 11, minePadY - 0.25, minePadC.z, PALETTE.floor);
+  padBox(scene, mPad, 10, 0.8, 0.2, minePadC.x + 11, minePadY + 0.4, minePadC.z - 1.2, PALETTE.accentB, true);
+  padBox(scene, mPad, 10, 0.8, 0.2, minePadC.x + 11, minePadY + 0.4, minePadC.z + 1.2, PALETTE.accentB, true);
+  // crystal platform: where the rock keeps its savings
+  padBox(scene, mPad, 10, 0.6, 10, minePadC.x + 20, minePadY - 0.3, minePadC.z, PALETTE.floor);
+  padBox(scene, mPad, 10, 1, 0.3, minePadC.x + 20, minePadY + 0.5, minePadC.z - 5, PALETTE.trim, true);
+  padBox(scene, mPad, 10, 1, 0.3, minePadC.x + 20, minePadY + 0.5, minePadC.z + 5, PALETTE.trim, true);
+  padBox(scene, mPad, 0.3, 1, 10, minePadC.x + 25, minePadY + 0.5, minePadC.z, PALETTE.trim, true);
+  // monumental crystals (decorative; the small ones are the mineable ones)
+  for (let i = 0; i < 3; i++) {
+    const big = new THREE.Mesh(
+      new THREE.OctahedronGeometry(1.6 + i * 0.7),
+      new THREE.MeshLambertMaterial({ color: PALETTE.accentB, emissive: new THREE.Color(0x6a5200) })
+    );
+    big.position.set(minePadC.x + 17 + i * 3, minePadY + 1.6 + i * 0.7, minePadC.z - 2 + i * 2.2);
+    big.rotation.set(i, i * 2.2, 0.3);
+    big.userData.guideTitle = 'CRYSTAL FORMATION';
+    big.userData.guideText = 'Grew here over nine million years. The mining concern gave it a barcode.';
+    scene.add(big);
+  }
+  const crystalGlow = new THREE.PointLight(PALETTE.accentB, 24, 20, 1.6);
+  crystalGlow.position.set(minePadC.x + 20, minePadY + 4, minePadC.z);
+  scene.add(crystalGlow);
+  // two more ore nodes out on the platform
+  for (let i = 0; i < 2; i++) {
+    const px = minePadC.x + 19 + i * 3.4;
+    const pz = minePadC.z + 3 - i * 5.5;
+    padBox(scene, mPad, 0.7, 0.55, 0.7, px, minePadY + 0.27, pz, 0x4a4060);
+    const ore = addSalvage(new THREE.OctahedronGeometry(0.3), oreMat, new THREE.Vector3(px, minePadY + 0.9, pz));
+    ore.rotation.set(i * 2, i, 1);
+    ore.userData.guideTitle = 'ORE NODE';
+    ore.userData.guideText = 'Glows encouragingly. Geologists call this "a trap". Miners call it "Tuesday".';
   }
   // floodlight pole
   padBox(scene, mPad, 0.2, 5, 0.2, minePadC.x - 4, minePadY + 2.5, minePadC.z + 4, PALETTE.dark);
@@ -261,7 +301,39 @@ export function buildSector(world: World, seed: number): Sector {
   padBox(scene, dPadColliders, 6, 0.5, 6, dx, dPadY + 3.2, dz - 22.5, 0x2a2438);
   padBox(scene, dPadColliders, 0.4, 3, 6, dx - 3, dPadY + 1.5, dz - 22.5, 0x3a3148);
   padBox(scene, dPadColliders, 0.4, 3, 6, dx + 3, dPadY + 1.5, dz - 22.5, 0x3a3148);
-  padBox(scene, dPadColliders, 6, 3, 0.4, dx, dPadY + 1.5, dz - 25.5, 0x3a3148);
+  // far wall split: a door through to the engine room
+  padBox(scene, dPadColliders, 2.2, 3, 0.4, dx - 1.9, dPadY + 1.5, dz - 25.5, 0x3a3148);
+  padBox(scene, dPadColliders, 2.2, 3, 0.4, dx + 1.9, dPadY + 1.5, dz - 25.5, 0x3a3148);
+
+  // engine room: the reactor idles at 4%, which the manual calls "sulking"
+  padBox(scene, dPadColliders, 10, 0.6, 9, dx, dPadY - 0.3, dz - 30.5, PALETTE.floor);
+  padBox(scene, dPadColliders, 10, 0.5, 9, dx, dPadY + 3.7, dz - 30.5, 0x2a2438);
+  padBox(scene, dPadColliders, 0.4, 4, 9, dx - 5, dPadY + 2, dz - 30.5, 0x3a3148);
+  padBox(scene, dPadColliders, 0.4, 4, 9, dx + 5, dPadY + 2, dz - 30.5, 0x3a3148);
+  padBox(scene, dPadColliders, 10, 4, 0.4, dx, dPadY + 2, dz - 35, 0x3a3148);
+  // the reactor core: a humming column nobody should lick
+  padBox(scene, dPadColliders, 2.2, 0.4, 2.2, dx, dPadY + 0.2, dz - 31.5, 0x4a4060);
+  const core = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.7, 0.7, 2.8, 10),
+    new THREE.MeshLambertMaterial({ color: 0x4aff9a, emissive: new THREE.Color(0x0a4426) })
+  );
+  core.position.set(dx, dPadY + 1.8, dz - 31.5);
+  core.name = 'derelict-core';
+  core.userData.guideTitle = 'REACTOR CORE';
+  core.userData.guideText = 'Hums in B flat. The cargo learned it from somewhere.';
+  scene.add(core);
+  const coreLight = new THREE.PointLight(0x4aff9a, 16, 18, 1.6);
+  coreLight.position.set(dx, dPadY + 2.4, dz - 31.5);
+  scene.add(coreLight);
+  // pipes along the walls + two more pieces of salvage
+  for (const sx of [-4.6, 4.6]) {
+    const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 8.4, 8), new THREE.MeshLambertMaterial({ color: 0x4a4060 }));
+    pipe.rotation.x = Math.PI / 2;
+    pipe.position.set(dx + sx, dPadY + 2.6, dz - 30.5);
+    scene.add(pipe);
+  }
+  addSalvage(new THREE.BoxGeometry(0.5, 0.5, 0.5), glowMat, new THREE.Vector3(dx - 3.6, dPadY + 0.25, dz - 33));
+  addSalvage(new THREE.BoxGeometry(0.4, 0.4, 0.4), glowMat, new THREE.Vector3(dx + 3.8, dPadY + 0.2, dz - 28.5));
   // log terminal: dead console, one stubborn screen
   padBox(scene, dPadColliders, 1.2, 1.4, 0.5, dx, dPadY + 0.7, dz - 24.8, PALETTE.dark);
   const logScreen = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.5, 0.06), new THREE.MeshBasicMaterial({ color: 0x2a4438 }));
@@ -311,8 +383,16 @@ export function buildSector(world: World, seed: number): Sector {
   padBox(scene, bPadColliders, 8, 1, 0.3, beaconPos.x, bPadY + 0.5, beaconPos.z + 4, PALETTE.accentA, true);
   padBox(scene, bPadColliders, 0.3, 1, 8, beaconPos.x - 4, bPadY + 0.5, beaconPos.z, PALETTE.accentA, true);
   padBox(scene, bPadColliders, 0.3, 1, 8, beaconPos.x + 4, bPadY + 0.5, beaconPos.z, PALETTE.accentA, true);
-  // kiosk
+  // kiosk shelter: walls, a counter, a bench for existential pauses
+  padBox(scene, bPadColliders, 5, 0.5, 5, beaconPos.x + 1.5, bPadY + 2.75, beaconPos.z - 1.5, 0x2a2438);
+  padBox(scene, bPadColliders, 5, 3, 0.4, beaconPos.x + 1.5, bPadY + 1.5, beaconPos.z - 3.8, PALETTE.wall);
+  padBox(scene, bPadColliders, 0.4, 3, 2.2, beaconPos.x + 3.8, bPadY + 1.5, beaconPos.z - 2.8, PALETTE.wall);
+  padBox(scene, bPadColliders, 0.4, 3, 2.2, beaconPos.x - 0.8, bPadY + 1.5, beaconPos.z - 2.8, PALETTE.wall);
   padBox(scene, bPadColliders, 1, 1.6, 0.6, beaconPos.x + 2, bPadY + 0.8, beaconPos.z - 2, PALETTE.dark);
+  padBox(scene, bPadColliders, 2, 0.5, 0.8, beaconPos.x + 0.2, bPadY + 0.25, beaconPos.z - 3.2, PALETTE.accentA);
+  const kioskLight = new THREE.PointLight(PALETTE.trim, 8, 10, 1.6);
+  kioskLight.position.set(beaconPos.x + 1.5, bPadY + 2.4, beaconPos.z - 2);
+  scene.add(kioskLight);
 
   sector.pois.push({
     name: 'NAV BEACON',
@@ -326,6 +406,100 @@ export function buildSector(world: World, seed: number): Sector {
     },
     guideTitle: 'NAVIGATION BEACON XK-9',
     guideText: 'Broadcasts "YOU ARE HERE" to a radius of 40 light-minutes. Unhelpfully, it is correct.',
+  });
+
+  // --- wreck field: six dead hulls, one dockable gantry, finders-keepers
+  const wreckPos = new THREE.Vector3(
+    (rnd() - 0.5) * 200, 30 + rnd() * 40, -380 - rnd() * 120
+  );
+  const wMat = new THREE.MeshLambertMaterial({ color: 0x35304a });
+  applyVertexSnap(wMat);
+  for (let i = 0; i < 6; i++) {
+    const hulk = new THREE.Group();
+    const segs = 2 + Math.floor(rnd() * 3);
+    for (let s = 0; s < segs; s++) {
+      const seg = new THREE.Mesh(new THREE.BoxGeometry(3 + rnd() * 5, 2 + rnd() * 3, 4 + rnd() * 6), wMat);
+      seg.position.set(s * 4, (rnd() - 0.5) * 2, (rnd() - 0.5) * 3);
+      seg.rotation.set(rnd(), rnd(), rnd() * 0.5);
+      hulk.add(seg);
+    }
+    hulk.position.copy(wreckPos).add(new THREE.Vector3((rnd() - 0.5) * 80, (rnd() - 0.5) * 40, (rnd() - 0.5) * 80));
+    hulk.rotation.y = rnd() * Math.PI * 2;
+    scene.add(hulk);
+  }
+  const wPadColliders: ColliderBox[] = [];
+  const wPadY = wreckPos.y - 12;
+  padBox(scene, wPadColliders, 9, 0.6, 9, wreckPos.x, wPadY - 0.3, wreckPos.z, PALETTE.floor);
+  padBox(scene, wPadColliders, 9, 1, 0.3, wreckPos.x, wPadY + 0.5, wreckPos.z - 4.5, PALETTE.accentA, true);
+  padBox(scene, wPadColliders, 9, 1, 0.3, wreckPos.x, wPadY + 0.5, wreckPos.z + 4.5, PALETTE.accentA, true);
+  padBox(scene, wPadColliders, 0.3, 1, 9, wreckPos.x - 4.5, wPadY + 0.5, wreckPos.z, PALETTE.accentA, true);
+  padBox(scene, wPadColliders, 0.3, 1, 9, wreckPos.x + 4.5, wPadY + 0.5, wreckPos.z, PALETTE.accentA, true);
+  // a crane gantry and crates that outlived their ships
+  padBox(scene, wPadColliders, 0.3, 6, 0.3, wreckPos.x - 3, wPadY + 3, wreckPos.z - 3, PALETTE.dark);
+  padBox(scene, wPadColliders, 5, 0.3, 0.3, wreckPos.x - 0.7, wPadY + 5.8, wreckPos.z - 3, PALETTE.dark);
+  padBox(scene, wPadColliders, 1.3, 1.3, 1.3, wreckPos.x + 2.5, wPadY + 0.65, wreckPos.z + 2.5, 0x4a4060);
+  addSalvage(new THREE.BoxGeometry(0.5, 0.5, 0.5), glowMat, new THREE.Vector3(wreckPos.x + 2.5, wPadY + 1.55, wreckPos.z + 2.5));
+  addSalvage(new THREE.BoxGeometry(0.45, 0.45, 0.45), glowMat, new THREE.Vector3(wreckPos.x - 2.8, wPadY + 0.22, wreckPos.z + 1));
+  addSalvage(new THREE.BoxGeometry(0.4, 0.4, 0.4), glowMat, new THREE.Vector3(wreckPos.x + 0.5, wPadY + 0.2, wreckPos.z - 3.2));
+  sector.pois.push({
+    name: 'WRECK FIELD',
+    kind: 'wreck',
+    position: wreckPos,
+    dock: {
+      shipPos: new THREE.Vector3(wreckPos.x - 1, wPadY, wreckPos.z + 1),
+      standPos: new THREE.Vector3(wreckPos.x + 2, wPadY, wreckPos.z - 1),
+      floorY: wPadY,
+      colliders: wPadColliders,
+    },
+    guideTitle: 'WRECK FIELD KESSLER-MINOR',
+    guideText: 'Six ships entered a dispute over right of way. The dispute won.',
+  });
+
+  // --- nebulette: a small, privately disappointing nebula
+  const nebPos = new THREE.Vector3(-(200 + rnd() * 150), 60 + rnd() * 50, -320 - rnd() * 100);
+  const nebTints = [0xff2e88, 0x7fffd4, 0x6a4a8a];
+  for (let i = 0; i < 7; i++) {
+    const puff = new THREE.Mesh(
+      new THREE.SphereGeometry(18 + rnd() * 22, 10, 8),
+      new THREE.MeshBasicMaterial({
+        color: nebTints[i % nebTints.length], transparent: true, opacity: 0.05 + rnd() * 0.05,
+        depthWrite: false,
+      })
+    );
+    puff.position.copy(nebPos).add(new THREE.Vector3((rnd() - 0.5) * 70, (rnd() - 0.5) * 40, (rnd() - 0.5) * 70));
+    scene.add(puff);
+  }
+  const nebLight = new THREE.PointLight(0xff2e88, 40, 160, 1.4);
+  nebLight.position.copy(nebPos);
+  scene.add(nebLight);
+  sector.pois.push({
+    name: 'NEBULETTE',
+    kind: 'nebula',
+    position: nebPos,
+    guideTitle: 'THE NEBULETTE',
+    guideText: 'A nebula of modest ambition. Locals describe it as "load-bearing fog".',
+  });
+
+  // --- the monolith: tall, black, smug
+  const monoPos = new THREE.Vector3((rnd() - 0.5) * 300, -(60 + rnd() * 60), -300 - rnd() * 200);
+  const mono = new THREE.Mesh(
+    new THREE.BoxGeometry(4, 36, 9),
+    new THREE.MeshLambertMaterial({ color: 0x0a0a12 })
+  );
+  mono.position.copy(monoPos);
+  mono.rotation.y = rnd() * Math.PI;
+  mono.userData.guideTitle = 'THE MONOLITH';
+  mono.userData.guideText = 'Ratio 1:4:9. It is not transmitting. It is, however, judging.';
+  scene.add(mono);
+  const monoRim = new THREE.PointLight(0x9fd8ff, 30, 90, 1.5);
+  monoRim.position.copy(monoPos).add(new THREE.Vector3(8, 10, 8));
+  scene.add(monoRim);
+  sector.pois.push({
+    name: 'MONOLITH',
+    kind: 'monolith',
+    position: monoPos,
+    guideTitle: 'THE MONOLITH',
+    guideText: 'Ratio 1:4:9. It is not transmitting. It is, however, judging.',
   });
 
   // --- dock beacons: tall glowing pillars so pads can be FOUND
