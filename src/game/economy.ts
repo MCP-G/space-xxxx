@@ -44,6 +44,9 @@ export class PlayerState {
   hull = 100;
   engineLevel = 1;
   cargo = new Map<string, number>();
+  /** Owned weapon ids, in WEAPONS order. Everyone starts with the blaster. */
+  weapons: string[] = ['blaster'];
+  weaponIndex = 0;
 
   cargoCount(): number {
     let n = 0;
@@ -70,6 +73,7 @@ export class PlayerState {
       credits: this.credits,
       engineLevel: this.engineLevel,
       cargo: [...this.cargo.entries()],
+      weapons: this.weapons,
     }));
   }
 
@@ -81,6 +85,7 @@ export class PlayerState {
       this.credits = s.credits ?? 100;
       this.engineLevel = s.engineLevel ?? 1;
       this.cargo = new Map(s.cargo ?? []);
+      this.weapons = s.weapons?.length ? s.weapons : ['blaster'];
     } catch { /* corrupted save: the Ministry regrets nothing */ }
   }
 }

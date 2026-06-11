@@ -183,6 +183,22 @@ export class AudioDirector {
     setTimeout(() => s.dispose(), 400);
   }
 
+  /** Pulse cannon: a deep descending whomp with bite. */
+  pulse() {
+    if (!this.started) return;
+    const s = new Tone.MonoSynth({
+      oscillator: { type: 'square' },
+      envelope: { attack: 0.002, decay: 0.35, sustain: 0, release: 0.05 },
+      filterEnvelope: {
+        attack: 0.001, decay: 0.3, sustain: 0, release: 0.05,
+        baseFrequency: 800, octaves: -2.5,
+      },
+    }).connect(this.crusher);
+    s.volume.value = -6;
+    s.triggerAttackRelease('A1', '8n');
+    setTimeout(() => s.dispose(), 800);
+  }
+
   /** Something exploded. Probably fine. */
   boom() {
     if (!this.started) return;

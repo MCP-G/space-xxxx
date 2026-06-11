@@ -11,13 +11,13 @@ import { Hud } from './ui/hud';
 import { InteractionRegistry } from './core/Interactable';
 import { Ministry } from './chain/ministry';
 import { PlayerState, marketPrices, COMMODITIES, CARGO_CAPACITY } from './game/economy';
-import { CombatSystem } from './game/combat';
+import { CombatSystem, WEAPONS } from './game/combat';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#game')!;
 const boot = document.querySelector<HTMLDivElement>('#boot')!;
 const legacyHud = document.querySelector<HTMLDivElement>('#hud')!;
 legacyHud.textContent =
-  'WASD move · SHIFT sprint/boost · E interact\n' +
+  'WASD move · SHIFT sprint/boost · E interact · CLICK fire · Q swap weapon\n' +
   'FLIGHT: mouse steer · W/S thrust · A/D strafe · R/F lift · SPACE brake · T nav target\n' +
   'PORT IMPROBABLE — Deck 7 (allegedly)';
 
@@ -163,7 +163,7 @@ const kioskInteract = interactions.add({
 
 // --- salvage + combat
 const combat = new CombatSystem(world.scene, {
-  onShot: () => audio.zap(),
+  onShot: (w) => (w.id === 'pulse' ? audio.pulse() : audio.zap()),
   onDroneDown: (pos) => {
     audio.boom();
     pipeline.triggerGlitch(0.7);
@@ -263,17 +263,57 @@ interactions.add({
 });
 flight.power = 1 + 0.25 * (player.engineLevel - 1);
 
-// --- blaster: click to shoot (when pointer is locked and no menu open)
+// --- weapons: click to fire along the crosshair, Q to switch
+function currentWeapon() {
+  const owned = WEAPONS.filter((w) => player.weapons.includes(w.id));
+  return owned[player.weaponIndex % owned.length];
+}
+
+function fire() {
+  // both modes aim with the active camera, so shots land on the crosshair
+  const dir = new THREE.Vector3();
+  walk.camera.getWorldDirection(dir);
+  combat.shoot(currentWeapon(), walk.camera.position.clone(), dir);
+}
+
 canvas.addEventListener('mousedown', () => {
   if (document.pointerLockElement !== canvas || openMarketId !== null) return;
-  if (mode === 'walk') {
-    const dir = new THREE.Vector3();
-    walk.camera.getWorldDirection(dir);
-    combat.shoot(walk.camera.position.clone(), dir);
-  } else {
-    const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(ship.quaternion);
-    combat.shoot(ship.seatWorld().clone().addScaledVector(dir, 5), dir);
+  fire();
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.code !== 'KeyQ' || openMarketId !== null) return;
+  const owned = WEAPONS.filter((w) => player.weapons.includes(w.id));
+  if (owned.length < 2) {
+    hud.say('ONLY ONE WEAPON ABOARD. THE ARMS CRATE IN THE HANGAR HAS OPINIONS.', 3);
+    return;
   }
+  player.weaponIndex = (player.weaponIndex + 1) % owned.length;
+  hud.say(`WEAPON: ${currentWeapon().name}`, 2);
+  audio.footstep();
+});
+
+// the arms crate: a grey box of solutions to problems you also bought here
+interactions.add({
+  position: new THREE.Vector3(-4.2, 0.5, -12.5),
+  radius: 2.2,
+  label: 'E — ARMS CRATE: PULSE CANNON (8 SCRAP)',
+  enabled: true,
+  onUse: () => {
+    if (player.weapons.includes('pulse')) {
+      hud.say('CRATE: "YOU ALREADY OWN ONE. UPSELLING IS BENEATH ME. BARELY."', 3);
+      return;
+    }
+    if (!player.remove('scrap', 8)) {
+      hud.say('CRATE: "EIGHT SCRAP. THE CANNON KNOWS ITS WORTH."', 3);
+      return;
+    }
+    player.weapons.push('pulse');
+    player.weaponIndex = 1;
+    player.save();
+    audio.boom();
+    hud.say('PULSE CANNON ACQUIRED. Q TO SWITCH. AIM AWAY FROM RENT.', 5);
+  },
 });
 
 // Ministry filing window: the screen beside the terminal monolith
@@ -524,7 +564,7 @@ window.addEventListener('resize', () => {
 // debug/test hook (drives scripted verification; harmless in production)
 Object.assign(window as any, {
   __game: {
-    walk, flight, ship, dockAt, enterFlight, setSector, combat, player,
+    walk, flight, ship, dockAt, enterFlight, setSector, combat, player, fire,
     sector: () => sector,
     dockSpots: () => dockSpots,
     mode: () => mode,
@@ -629,7 +669,7 @@ function frame(now: number) {
   // status line
   hud.setStatus(
     `CREDITS ${player.credits}¢ · CARGO ${player.cargoCount()}/${CARGO_CAPACITY}\n` +
-    `HULL ${player.hull}% · ENGINE MK.${player.engineLevel}` +
+    `HULL ${player.hull}% · ENGINE MK.${player.engineLevel} · ${currentWeapon().name}` +
     (combat.aliveCount > 0 ? `\nDRONES: ${combat.aliveCount} (displeased)` : '')
   );
 
