@@ -5,11 +5,18 @@ import * as Tone from 'tone';
  * Acid-ish bassline (16-step), euclidean hat pattern, drifting pad,
  * everything through a bitcrusher into a limiter. Footsteps are FM blips.
  */
+export type MusicMode = 'station' | 'flight';
+
 export class AudioDirector {
   private started = false;
   private master!: Tone.Limiter;
   private crusher!: Tone.BitCrusher;
   private footSynth!: Tone.MembraneSynth;
+  private padChannel!: Tone.Channel;
+  private leadChannel!: Tone.Channel;
+  private thrustNoise!: Tone.Noise;
+  private thrustGain!: Tone.Gain;
+  private mode: MusicMode = 'station';
 
   async start() {
     if (this.started) return;
@@ -62,11 +69,12 @@ export class AudioDirector {
     new Tone.Loop((time) => kick.triggerAttackRelease('C1', '8n', time), '4n').start(0);
 
     // --- pad: slow drifting chords, heavily crushed, very station-ambience
+    this.padChannel = new Tone.Channel(0).connect(this.crusher);
     const pad = new Tone.PolySynth(Tone.Synth, {
       oscillator: { type: 'triangle' },
       envelope: { attack: 1.5, decay: 1, sustain: 0.6, release: 3 },
     });
-    const padFilter = new Tone.Filter(800, 'lowpass').connect(this.crusher);
+    const padFilter = new Tone.Filter(800, 'lowpass').connect(this.padChannel);
     pad.connect(padFilter);
     pad.volume.value = -18;
     const chords = [['A2', 'C3', 'E3'], ['F2', 'A2', 'C3'], ['G2', 'B2', 'D3'], ['A2', 'C3', 'G3']];
@@ -75,6 +83,30 @@ export class AudioDirector {
       pad.triggerAttackRelease(chords[chordIdx % chords.length], '2n', time);
       chordIdx++;
     }, '1m').start(0);
+
+    // --- flight lead: square-wave arp, muted in station mode
+    this.leadChannel = new Tone.Channel(-60).connect(this.crusher);
+    const lead = new Tone.MonoSynth({
+      oscillator: { type: 'square' },
+      envelope: { attack: 0.005, decay: 0.1, sustain: 0.15, release: 0.08 },
+      filterEnvelope: {
+        attack: 0.002, decay: 0.08, sustain: 0.3, release: 0.1,
+        baseFrequency: 400, octaves: 2.5,
+      },
+    }).connect(this.leadChannel);
+    lead.volume.value = -12;
+    const arp = ['A3', 'C4', 'E4', 'A4', 'G4', 'E4', 'C4', 'E3'];
+    let arpIdx = 0;
+    new Tone.Loop((time) => {
+      lead.triggerAttackRelease(arp[arpIdx % arp.length], '16n', time);
+      arpIdx += (arpIdx % 5 === 0) ? 2 : 1; // limp slightly, on purpose
+    }, '8n').start(0);
+
+    // --- engine thrust: filtered brown noise, gain driven by game
+    this.thrustNoise = new Tone.Noise('brown').start();
+    this.thrustGain = new Tone.Gain(0).connect(this.master);
+    const thrustFilter = new Tone.Filter(220, 'lowpass').connect(this.thrustGain);
+    this.thrustNoise.connect(thrustFilter);
 
     // --- footsteps
     this.footSynth = new Tone.MembraneSynth({
@@ -86,6 +118,27 @@ export class AudioDirector {
 
     Tone.getTransport().bpm.value = 124;
     Tone.getTransport().start();
+  }
+
+  /** Crossfade between station groove and flight mode (faster, lead in). */
+  setMode(mode: MusicMode) {
+    if (!this.started || mode === this.mode) return;
+    this.mode = mode;
+    if (mode === 'flight') {
+      Tone.getTransport().bpm.rampTo(140, 2);
+      this.padChannel.volume.rampTo(-14, 1.5);
+      this.leadChannel.volume.rampTo(0, 1.5);
+    } else {
+      Tone.getTransport().bpm.rampTo(124, 2);
+      this.padChannel.volume.rampTo(0, 1.5);
+      this.leadChannel.volume.rampTo(-60, 1.5);
+    }
+  }
+
+  /** Engine rumble loudness, 0..1 (thrust input + speed). */
+  setThrust(level: number) {
+    if (!this.started) return;
+    this.thrustGain.gain.rampTo(Math.min(level, 1) * 0.5, 0.1);
   }
 
   footstep() {
