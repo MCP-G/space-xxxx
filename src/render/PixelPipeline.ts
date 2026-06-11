@@ -5,6 +5,7 @@ import * as THREE from 'three';
 // and glitch passes. The internal resolution is the look — don't raise it.
 // Default 1080; override with ?res=540 etc. for weaker GPUs / testing.
 const INTERNAL_HEIGHT = (() => {
+  if (typeof location === 'undefined') return 1080; // node (tests)
   const q = new URLSearchParams(location.search).get('res');
   const n = q ? parseInt(q, 10) : NaN;
   return Number.isFinite(n) && n >= 120 ? n : 1080;
