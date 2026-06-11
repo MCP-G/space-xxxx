@@ -3,6 +3,8 @@ import * as THREE from 'three';
 import { PixelPipeline } from './render/PixelPipeline';
 import { buildStation, TERMINAL_LINES, NPC_SPAWNS } from './world/station';
 import { loadModel, activeMixers } from './render/models';
+import { registry } from './lib/registry/AssetRegistry';
+import './lib/registry/prefabs';
 import { buildSector, DERELICT_LOGS, type Poi } from './world/sector';
 import { WalkController } from './player/WalkController';
 import { FlightController } from './player/FlightController';
@@ -649,6 +651,8 @@ setInterval(() => {
     audio.glitchBurst();
   }
 }, 9000);
+
+registry.preload(); // warm the model cache while the boot screen flickers
 
 boot.addEventListener('click', async () => {
   boot.style.display = 'none';

@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import type { Sector } from '../world/sector';
 import { PALETTE } from '../world/station';
+import { registry } from '../lib/registry/AssetRegistry';
+import '../lib/registry/prefabs';
 
 // Security drones haunt the derelict: leftover loss-prevention units still
 // enforcing a returns policy nobody remembers. They drop scrap when argued
@@ -112,64 +114,20 @@ export class CombatSystem {
     const derelict = sector.pois.find((p) => p.kind === 'derelict');
     if (!derelict) return;
     for (let i = 0; i < DRONE_COUNT; i++) {
-      const { group, core, ring, eye } = this.buildDroneModel();
-      group.userData.guideTitle = 'LOSS-PREVENTION DRONE';
-      group.userData.guideText = 'Still guarding inventory that no longer exists. Commendable. Hostile.';
+      // the drone lives in the prefab catalogue now — spawn, don't build
+      const { root: group, parts } = registry.spawn('drone-loss-prevention');
       const home = derelict.position.clone().add(new THREE.Vector3((i - 1) * 14, 6 + i * 3, 10));
       group.position.copy(home);
       this.root.add(group);
       this.drones.push({
-        mesh: group, core, ring, eye,
+        mesh: group as THREE.Group,
+        core: parts!.core as THREE.Mesh,
+        ring: parts!.ring as THREE.Mesh,
+        eye: parts!.eye as THREE.Mesh,
         hp: DRONE_HP, fireTimer: 1 + i, orbit: i * 2.1, home,
         vel: new THREE.Vector3(), dodgeTimer: 0, strafeDir: i % 2 === 0 ? 1 : -1,
       });
     }
-  }
-
-  /** A drone that looks like equipment, not geometry homework. */
-  private buildDroneModel() {
-    const group = new THREE.Group();
-    const dark = new THREE.MeshLambertMaterial({ color: 0x2a2438 });
-    // core: the pink business end
-    const core = new THREE.Mesh(new THREE.OctahedronGeometry(0.75, 1), this.droneMat);
-    group.add(core);
-    // equatorial gyro ring
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(1.25, 0.12, 8, 24), dark);
-    ring.rotation.x = Math.PI / 2;
-    group.add(ring);
-    // staring eye, front and center
-    const eye = new THREE.Mesh(
-      new THREE.SphereGeometry(0.28, 10, 8),
-      new THREE.MeshBasicMaterial({ color: 0xffffff })
-    );
-    eye.position.set(0, 0, 0.7);
-    group.add(eye);
-    const pupil = new THREE.Mesh(
-      new THREE.SphereGeometry(0.12, 8, 6),
-      new THREE.MeshBasicMaterial({ color: 0x14141f })
-    );
-    pupil.position.set(0, 0, 0.95);
-    group.add(pupil);
-    // antennae + clamp arms
-    for (const sx of [-1, 1]) {
-      const ant = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.9, 4), dark);
-      ant.position.set(sx * 0.45, 0.95, 0);
-      ant.rotation.z = sx * -0.25;
-      group.add(ant);
-      const tip = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 5), new THREE.MeshBasicMaterial({ color: 0xff3030 }));
-      tip.position.set(sx * 0.56, 1.38, 0);
-      group.add(tip);
-      const arm = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.5, 0.12), dark);
-      arm.position.set(sx * 1.0, -0.7, 0.2);
-      arm.rotation.x = 0.5;
-      group.add(arm);
-    }
-    // bottom emitter (where the regrettable bolts come from)
-    const emitter = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.5, 8), this.boltMat);
-    emitter.position.set(0, -0.85, 0);
-    emitter.rotation.x = Math.PI;
-    group.add(emitter);
-    return { group, core, ring, eye };
   }
 
   inDanger(target: THREE.Vector3): boolean {

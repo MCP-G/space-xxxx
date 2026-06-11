@@ -1,0 +1,20 @@
+{
+  "$comment": "Every asset in the game: source, license, budget, status. CI budget checks arrive with R5.",
+  "models": [
+    { "id": "ship-imperial",    "file": "public/models/Imperial.gltf",    "source": "Quaternius Ultimate Spaceships", "license": "CC0", "sizeMB": 4.6, "role": "player ship exterior" },
+    { "id": "ship-challenger",  "file": "public/models/Challenger.gltf",  "source": "Quaternius Ultimate Spaceships", "license": "CC0", "sizeMB": 4.8, "role": "hangar prop" },
+    { "id": "npc-worker",       "file": "public/models/Worker.glb",       "source": "Quaternius Modular Men",   "license": "CC0", "sizeMB": 0.7, "role": "engineer", "issues": "no animation clips" },
+    { "id": "npc-casual-man",   "file": "public/models/Casual.glb",       "source": "Quaternius Modular Men",   "license": "CC0", "sizeMB": 0.8, "role": "bar patron", "issues": "no animation clips" },
+    { "id": "npc-casual-woman", "file": "public/models/CasualWoman.glb",  "source": "Quaternius Modular Women", "license": "CC0", "sizeMB": 0.8, "role": "bartender", "issues": "no animation clips" },
+    { "id": "npc-scifi-woman",  "file": "public/models/SciFiWoman.glb",   "source": "Quaternius Modular Women", "license": "CC0", "sizeMB": 0.9, "role": "passenger", "issues": "no animation clips" },
+    { "id": "npc-spacesuit",    "file": "public/models/Spacesuit.glb",    "source": "Quaternius Modular Men",   "license": "CC0", "sizeMB": 1.3, "role": "suit guy", "issues": "no animation clips" }
+  ],
+  "procedural": [
+    { "id": "drone-loss-prevention", "tris": "~600", "role": "enemy", "overrides": ["tint"] },
+    { "id": "salvage-crate",         "tris": 12,     "role": "pickup", "overrides": ["size"] },
+    { "id": "ore-node",              "tris": 8,      "role": "pickup" }
+  ],
+  "wanted": [
+    { "id": "npc-animated-set", "note": "R2: Quaternius animated characters or UAL retarget — raw GLBs with clips not available on mirrors; needs pack download + conversion" }
+  ]
+}

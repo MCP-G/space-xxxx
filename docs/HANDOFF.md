@@ -1,7 +1,42 @@
 # SPACE XXXX — State of the Universe (handoff)
 
-*Last updated: June 2026. Everything below is implemented, committed, and
-verified in-browser unless marked otherwise.*
+*Last updated: June 2026 (post-R1). Everything below is implemented,
+committed, and verified in-browser unless marked otherwise.*
+
+## AAA plan progress
+
+**R1 (library spine): DONE.** The reusable asset library exists at `src/lib/`:
+
+- `lib/materials/MaterialLibrary.ts` — every named surface defined once
+  (`material('hull-worn')`, `material('glow-pink', {color})` for variants);
+  shared instances cached, overrides derive copies. Tune a def, the whole
+  universe updates.
+- `lib/models/ModelCache.ts` — GLTF load-once/clone-many (SkeletonUtils),
+  normalization (feet at y=0, height/length scaling), shadows, preload.
+- `lib/registry/` — `AssetRegistry` + `Prefab` types + `prefabs.ts`
+  catalogue + `manifest.json` (source/license/budget per asset).
+  Procedural prefabs spawn sync (`registry.spawn(id, overrides)` →
+  `{root, parts}`); model prefabs via `spawnModel`/`preload()` (warmed at
+  boot). Guide text and prefabId ride in userData automatically.
+- **Proof-of-pattern**: the combat drone is spawned from
+  `'drone-loss-prevention'` (verified killing one in-browser);
+  `salvage-crate` and `ore-node` prefabs show the overrides pattern;
+  all 7 GLB models registered + preloaded.
+- `src/render/models.ts` is now a thin wrapper over ModelCache (adds
+  Quaternius arm-posing + idle-mixer support).
+- Tests: `lib/registry/registry.test.ts` locks the contract (12 total pass).
+
+**R2 next — animated characters.** Blocker found during R1: no reachable
+CC0 GLBs ship with animation clips (checked all Quaternius mirrors; clips
+live in site-only zips). R2 starts by downloading the Quaternius Universal
+Animation Library zip (or Mixamo export) and converting to GLB clips that
+retarget onto the existing `npc-*` rigs — ModelCache already returns
+`animations` and models.ts already plays idle clips when present, so it's
+an asset task, not a code task.
+
+**Still to migrate onto the library** (do opportunistically during R2/R3):
+station/sector builders still use local `box`/`padBox` helpers and the old
+PALETTE — fold into MaterialLibrary names + `lib/world/Interior.ts` per plan.
 
 ## Run it
 
