@@ -1,7 +1,32 @@
 # SPACE XXXX — State of the Universe (handoff)
 
-*Last updated: June 2026 (post-R2). Everything below is implemented,
-committed, and verified in-browser unless marked otherwise.*
+*Last updated: June 2026 (post-R2 + decay pass). Everything below is
+implemented, committed, and verified in-browser unless marked otherwise.*
+
+## Latest session: full playtest + cyber decay
+
+**Playtest** (scripted via `window.__game`, fresh save): every flow passes —
+economy caps/floors, all five docks, salvage, mining, kiosk market, ship's
+log, all three contract types (+ abandon + docking a delivery without the
+goods), Ministry filing, arms crate (broke/buy/double-buy), engineer
+upgrade. Fixes that came out of it:
+- **Hidden-tab freeze**: browsers park rAF *and* clamp setInterval in
+  hidden tabs. Heartbeat fallback added (helps briefly-hidden tabs) plus
+  `__game.step(ms)` — synchronous simulation stepping that makes scripted
+  testing deterministic regardless of throttling. Use it in all future
+  browser tests; do not trust setTimeout waits.
+- `?shadows=0` URL param (software-GL/CI), shadow-type deprecation fixed.
+
+**Cyber decay** — `lib/world/Decay.ts` (start of AAA-PLAN's Dressing
+system): feed `DecaySystem.apply()` any collider list; it classifies walls
+and floors (floor/ceiling pair detection so litter never decorates the
+void above rooms) and dresses them from seeded, pooled canvas textures:
+~20 Ministry slogan posters, ~20 robot graffiti tags (spray halo + drips),
+grime stains, and six floor-garbage builders (cans, bottles, crumpled
+reports, dead datapads, cable tangles, lost towels). Wired to the station
+(seed 777) and every sector POI pad/interior (derelict densest). Decals
+carry Guide entries. Tune density per call; add slogans/tags by appending
+to the arrays.
 
 ## AAA plan progress
 
