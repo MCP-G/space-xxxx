@@ -38,6 +38,8 @@ export interface Poi {
 }
 
 export interface Sector {
+  seed: number;
+  root: THREE.Group;
   pois: Poi[];
   asteroids: Asteroid[];
 }
@@ -49,7 +51,7 @@ function rockMat() {
 }
 
 function padBox(
-  world: World, colliders: ColliderBox[],
+  parent: THREE.Object3D, colliders: ColliderBox[],
   w: number, h: number, d: number, x: number, y: number, z: number,
   color: number, emissive = false
 ) {
@@ -58,7 +60,7 @@ function padBox(
   applyVertexSnap(mat);
   const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
   mesh.position.set(x, y, z);
-  world.scene.add(mesh);
+  parent.add(mesh);
   colliders.push({
     min: new THREE.Vector3(x - w / 2, y - h / 2, z - d / 2),
     max: new THREE.Vector3(x + w / 2, y + h / 2, z + d / 2),
@@ -69,8 +71,9 @@ function padBox(
 /** Generate the sector around Port Improbable into the world's scene. */
 export function buildSector(world: World, seed: number): Sector {
   const rnd = sfc32(0x9e3779b9, 0x243f6a88, 0xb7e15162, seed);
-  const scene = world.scene;
-  const sector: Sector = { pois: [], asteroids: [] };
+  const scene = new THREE.Group(); // detachable root: scene-like for adds below
+  world.scene.add(scene);
+  const sector: Sector = { seed, root: scene, pois: [], asteroids: [] };
 
   // --- starfield
   const starGeo = new THREE.BufferGeometry();
@@ -133,12 +136,12 @@ export function buildSector(world: World, seed: number): Sector {
 
   const dPadColliders: ColliderBox[] = [];
   const dPadY = derelictPos.y - 8;
-  padBox(world, dPadColliders, 10, 0.6, 10, derelictPos.x, dPadY - 0.3, derelictPos.z + 14, PALETTE.floor);
+  padBox(scene, dPadColliders, 10, 0.6, 10, derelictPos.x, dPadY - 0.3, derelictPos.z + 14, PALETTE.floor);
   // rails (the one thing aboard that still works)
-  padBox(world, dPadColliders, 10, 1, 0.3, derelictPos.x, dPadY + 0.5, derelictPos.z + 14 - 5, PALETTE.trim, true);
-  padBox(world, dPadColliders, 10, 1, 0.3, derelictPos.x, dPadY + 0.5, derelictPos.z + 14 + 5, PALETTE.trim, true);
-  padBox(world, dPadColliders, 0.3, 1, 10, derelictPos.x - 5, dPadY + 0.5, derelictPos.z + 14, PALETTE.trim, true);
-  padBox(world, dPadColliders, 0.3, 1, 10, derelictPos.x + 5, dPadY + 0.5, derelictPos.z + 14, PALETTE.trim, true);
+  padBox(scene, dPadColliders, 10, 1, 0.3, derelictPos.x, dPadY + 0.5, derelictPos.z + 14 - 5, PALETTE.trim, true);
+  padBox(scene, dPadColliders, 10, 1, 0.3, derelictPos.x, dPadY + 0.5, derelictPos.z + 14 + 5, PALETTE.trim, true);
+  padBox(scene, dPadColliders, 0.3, 1, 10, derelictPos.x - 5, dPadY + 0.5, derelictPos.z + 14, PALETTE.trim, true);
+  padBox(scene, dPadColliders, 0.3, 1, 10, derelictPos.x + 5, dPadY + 0.5, derelictPos.z + 14, PALETTE.trim, true);
 
   sector.pois.push({
     name: 'DERELICT',
@@ -171,13 +174,13 @@ export function buildSector(world: World, seed: number): Sector {
 
   const bPadColliders: ColliderBox[] = [];
   const bPadY = beaconPos.y - 9;
-  padBox(world, bPadColliders, 8, 0.6, 8, beaconPos.x, bPadY - 0.3, beaconPos.z, PALETTE.floor);
-  padBox(world, bPadColliders, 8, 1, 0.3, beaconPos.x, bPadY + 0.5, beaconPos.z - 4, PALETTE.accentA, true);
-  padBox(world, bPadColliders, 8, 1, 0.3, beaconPos.x, bPadY + 0.5, beaconPos.z + 4, PALETTE.accentA, true);
-  padBox(world, bPadColliders, 0.3, 1, 8, beaconPos.x - 4, bPadY + 0.5, beaconPos.z, PALETTE.accentA, true);
-  padBox(world, bPadColliders, 0.3, 1, 8, beaconPos.x + 4, bPadY + 0.5, beaconPos.z, PALETTE.accentA, true);
+  padBox(scene, bPadColliders, 8, 0.6, 8, beaconPos.x, bPadY - 0.3, beaconPos.z, PALETTE.floor);
+  padBox(scene, bPadColliders, 8, 1, 0.3, beaconPos.x, bPadY + 0.5, beaconPos.z - 4, PALETTE.accentA, true);
+  padBox(scene, bPadColliders, 8, 1, 0.3, beaconPos.x, bPadY + 0.5, beaconPos.z + 4, PALETTE.accentA, true);
+  padBox(scene, bPadColliders, 0.3, 1, 8, beaconPos.x - 4, bPadY + 0.5, beaconPos.z, PALETTE.accentA, true);
+  padBox(scene, bPadColliders, 0.3, 1, 8, beaconPos.x + 4, bPadY + 0.5, beaconPos.z, PALETTE.accentA, true);
   // kiosk
-  padBox(world, bPadColliders, 1, 1.6, 0.6, beaconPos.x + 2, bPadY + 0.8, beaconPos.z - 2, PALETTE.dark);
+  padBox(scene, bPadColliders, 1, 1.6, 0.6, beaconPos.x + 2, bPadY + 0.8, beaconPos.z - 2, PALETTE.dark);
 
   sector.pois.push({
     name: 'NAV BEACON',

@@ -9,6 +9,7 @@ import { Ship } from './ship/Ship';
 import { AudioDirector } from './audio/AudioDirector';
 import { Hud } from './ui/hud';
 import { InteractionRegistry } from './core/Interactable';
+import { Ministry } from './chain/ministry';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#game')!;
 const boot = document.querySelector<HTMLDivElement>('#boot')!;
@@ -20,8 +21,8 @@ legacyHud.textContent =
 
 const pipeline = new PixelPipeline(canvas);
 const world = buildStation();
-const SECTOR_SEED = 42; // M2: this becomes a SectorDeed token's seed
-const sector = buildSector(world, SECTOR_SEED);
+const ministry = new Ministry();
+let sector = buildSector(world, ministry.improviseSeed());
 const audio = new AudioDirector();
 const hud = new Hud();
 const interactions = new InteractionRegistry();
@@ -88,6 +89,27 @@ interactions.add({
   },
 });
 
+// Ministry filing window: the screen beside the terminal monolith
+let filing = false;
+interactions.add({
+  position: new THREE.Vector3(-3.5, 1.4, 17.3),
+  radius: 1.8,
+  label: 'E — FILE FORM 88-B (CLAIM A SECTOR)',
+  enabled: true,
+  onUse: () => {
+    if (filing) return;
+    filing = true;
+    hud.say('MINISTRY OF IMMUTABLE AFFAIRS: PROCESSING…', 3);
+    ministry.claimSector((u) => {
+      hud.say(u.text, u.stage === 'granted' ? 8 : 5);
+      pipeline.triggerGlitch(u.stage === 'rejected' ? 0.9 : 0.5);
+      audio.glitchBurst();
+      if (u.stage === 'granted') setSector(u.seed);
+      if (u.stage === 'granted' || u.stage === 'rejected') filing = false;
+    });
+  },
+});
+
 // --- docking (flight mode): station berth + POI pads
 interface DockSpot {
   name: string;
@@ -96,22 +118,43 @@ interface DockSpot {
   standPos: THREE.Vector3;
   poi: Poi | null;
 }
-const dockSpots: DockSpot[] = [
-  {
-    name: 'PORT IMPROBABLE',
-    shipPos: new THREE.Vector3(HANGAR_PARK.x, HANGAR_PARK.y, HANGAR_PARK.z),
-    shipYaw: HANGAR_PARK.yaw,
-    standPos: new THREE.Vector3(0, 0, -5.4),
-    poi: null,
-  },
-  ...sector.pois.filter((p) => p.dock).map((p) => ({
-    name: p.name,
-    shipPos: p.dock!.shipPos.clone(),
-    shipYaw: 0,
-    standPos: p.dock!.standPos.clone(),
-    poi: p,
-  })),
-];
+function buildDockSpots(): DockSpot[] {
+  return [
+    {
+      name: 'PORT IMPROBABLE',
+      shipPos: new THREE.Vector3(HANGAR_PARK.x, HANGAR_PARK.y, HANGAR_PARK.z),
+      shipYaw: HANGAR_PARK.yaw,
+      standPos: new THREE.Vector3(0, 0, -5.4),
+      poi: null,
+    },
+    ...sector.pois.filter((p) => p.dock).map((p) => ({
+      name: p.name,
+      shipPos: p.dock!.shipPos.clone(),
+      shipYaw: 0,
+      standPos: p.dock!.standPos.clone(),
+      poi: p,
+    })),
+  ];
+}
+let dockSpots = buildDockSpots();
+
+/** Tear down the current sector and generate a new one from `seed`. */
+function setSector(seed: number) {
+  world.scene.remove(sector.root);
+  sector.root.traverse((o: any) => {
+    o.geometry?.dispose?.();
+    o.material?.dispose?.();
+  });
+  sector = buildSector(world, seed);
+  dockSpots = buildDockSpots();
+  activePoi = null;
+  // anyone not at the station gets repossessed to the hangar, for safety
+  ship.park(HANGAR_PARK.x, HANGAR_PARK.y, HANGAR_PARK.z, HANGAR_PARK.yaw);
+  if (mode === 'fly') enterWalk(0, 0, -5.4);
+  else walk.setPosition(0, 0, -5.4);
+  pipeline.triggerGlitch(1);
+  audio.glitchBurst();
+}
 
 function nearestDock(): DockSpot | null {
   for (const d of dockSpots) {
@@ -247,7 +290,9 @@ window.addEventListener('resize', () => {
 // debug/test hook (drives scripted verification; harmless in production)
 Object.assign(window as any, {
   __game: {
-    walk, flight, ship, sector, dockSpots, dockAt, enterFlight,
+    walk, flight, ship, dockAt, enterFlight, setSector,
+    sector: () => sector,
+    dockSpots: () => dockSpots,
     mode: () => mode,
   },
 });
