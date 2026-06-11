@@ -12,6 +12,7 @@ import { InteractionRegistry } from './core/Interactable';
 import { Ministry } from './chain/ministry';
 import { PlayerState, marketPrices, COMMODITIES, CARGO_CAPACITY } from './game/economy';
 import { CombatSystem, WEAPONS } from './game/combat';
+import { MissionBoard } from './game/missions';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#game')!;
 const boot = document.querySelector<HTMLDivElement>('#boot')!;
@@ -170,6 +171,7 @@ const combat = new CombatSystem(world.scene, {
     if (player.add('scrap', 2)) hud.say('DRONE DISASSEMBLED. 2 SCRAP BEAMED ABOARD, NO QUESTIONS.', 3);
     else hud.say('DRONE DISASSEMBLED. SCRAP LOST TO THE VOID (CARGO FULL).', 3);
     player.save();
+    if (missions.active?.kind === 'clear' && missions.advance()) missionPayout();
     void pos;
   },
   onPlayerHit: (dmg) => {
@@ -208,6 +210,7 @@ const salvageInteract = interactions.add({
     player.save();
     audio.footstep();
     hud.say('+1 SCRAP (PROVENANCE: DUBIOUS)', 2);
+    if (missions.active?.kind === 'salvage' && missions.advance()) missionPayout();
   },
 });
 
@@ -277,7 +280,7 @@ function fire() {
 }
 
 canvas.addEventListener('mousedown', () => {
-  if (document.pointerLockElement !== canvas || openMarketId !== null) return;
+  if (document.pointerLockElement !== canvas || openMarketId !== null || boardOpen) return;
   fire();
 });
 
@@ -315,6 +318,69 @@ interactions.add({
     hud.say('PULSE CANNON ACQUIRED. Q TO SWITCH. AIM AWAY FROM RENT.', 5);
   },
 });
+
+// --- contracts board: gainful employment, posted beside the bar
+const missions = new MissionBoard();
+if (!missions.load()) missions.generate(sector.seed);
+
+let boardOpen = false;
+function renderBoard() {
+  if (!boardOpen) { hud.setMarket(null); return; }
+  const rows = missions.offers.map((m, i) =>
+    `<tr><td style="color:#b8b8d8">[${i + 1}]</td><td>${m.title}<br>` +
+    `<span style="color:#888;font-size:11px">${m.desc}</span></td>` +
+    `<td style="color:#7fffd4;white-space:nowrap">${m.reward}¢</td></tr>`
+  ).join('');
+  const activeLine = missions.active
+    ? `<span style="color:#ffd23e">ACTIVE: ${missions.active.title} · [0] abandon</span>`
+    : `<span style="color:#b8b8d8">[1-3] accept · E close</span>`;
+  hud.setMarket(
+    `<b>CONTRACTS BOARD (MINISTRY-ADJACENT, DENIABLE)</b><br>${activeLine}` +
+    `<table style="width:100%;border-collapse:collapse">${rows}</table>`
+  );
+}
+
+document.addEventListener('keydown', (e) => {
+  if (!boardOpen) return;
+  if (e.code === 'Digit0' && missions.active) {
+    missions.abandon();
+    hud.say('CONTRACT ABANDONED. THE BOARD PRETENDS NOT TO JUDGE.', 3);
+    renderBoard();
+    return;
+  }
+  const idx = ['Digit1', 'Digit2', 'Digit3'].indexOf(e.code);
+  if (idx < 0) return;
+  const m = missions.accept(idx);
+  if (m) {
+    hud.say(`CONTRACT ACCEPTED: ${m.title}. PAYMENT ON DELIVERY OF RESULTS.`, 4);
+    if (missions.offers.length === 0) missions.generate(sector.seed);
+  } else if (missions.active) {
+    hud.say('ONE JOB AT A TIME. THE BOARD ADMIRES AMBITION FROM A DISTANCE.', 3);
+  }
+  renderBoard();
+});
+
+interactions.add({
+  position: new THREE.Vector3(3.5, 0.9, 17.5),
+  radius: 2.4,
+  label: 'E — CONTRACTS BOARD',
+  enabled: true,
+  onUse: () => {
+    boardOpen = !boardOpen;
+    if (boardOpen && missions.offers.length === 0) missions.generate(sector.seed);
+    renderBoard();
+  },
+});
+
+function missionPayout() {
+  const m = missions.active!;
+  const reward = missions.complete();
+  player.credits += reward;
+  player.save();
+  audio.boom();
+  pipeline.triggerGlitch(0.5);
+  hud.say(`CONTRACT COMPLETE: ${m.title}. ${reward}¢ DISBURSED, GRUDGINGLY.`, 6);
+}
 
 // Ministry filing window: the screen beside the terminal monolith
 let filing = false;
@@ -399,6 +465,12 @@ function dockAt(spot: DockSpot) {
   enterWalk(spot.standPos.x, spot.shipPos.y, spot.standPos.z);
   hud.setFlight(null);
   hud.say(`DOCKED: ${spot.name}. Parking validated. Validation meaningless.`);
+  // deliver contracts settle on arrival, if the goods are actually aboard
+  const m = missions.active;
+  if (m?.kind === 'deliver' && spot.name === m.targetDock) {
+    if (player.remove(m.commodityId!, m.qty)) missionPayout();
+    else hud.say(`THE RECIPIENT AWAITS ${m.qty}x CARGO YOU DO NOT HAVE. AWKWARD.`, 5);
+  }
   pipeline.triggerGlitch(0.6);
   audio.glitchBurst();
 }
@@ -564,7 +636,7 @@ window.addEventListener('resize', () => {
 // debug/test hook (drives scripted verification; harmless in production)
 Object.assign(window as any, {
   __game: {
-    walk, flight, ship, dockAt, enterFlight, setSector, combat, player, fire,
+    walk, flight, ship, dockAt, enterFlight, setSector, combat, player, fire, missions,
     sector: () => sector,
     dockSpots: () => dockSpots,
     mode: () => mode,
@@ -670,7 +742,8 @@ function frame(now: number) {
   hud.setStatus(
     `CREDITS ${player.credits}¢ · CARGO ${player.cargoCount()}/${CARGO_CAPACITY}\n` +
     `HULL ${player.hull}% · ENGINE MK.${player.engineLevel} · ${currentWeapon().name}` +
-    (combat.aliveCount > 0 ? `\nDRONES: ${combat.aliveCount} (displeased)` : '')
+    (combat.aliveCount > 0 ? `\nDRONES: ${combat.aliveCount} (displeased)` : '') +
+    (missions.statusLine() ? `\n${missions.statusLine()}` : '')
   );
 
   pipeline.render(world.scene, walk.camera, dt, t);
