@@ -5,6 +5,7 @@ import { buildStation, TERMINAL_LINES, NPC_SPAWNS } from './world/station';
 import { loadModel, activeMixers } from './render/models';
 import { registry } from './lib/registry/AssetRegistry';
 import './lib/registry/prefabs';
+import { Character } from './lib/actors/Character';
 import { buildSector, DERELICT_LOGS, type Poi } from './world/sector';
 import { WalkController } from './player/WalkController';
 import { FlightController } from './player/FlightController';
@@ -37,16 +38,22 @@ const player = new PlayerState();
 player.load();
 
 // --- downloaded CC0 models (Quaternius): NPCs, player hull, hangar prop.
-// All async; the procedural versions stand in until they arrive.
+// All async; the world simply gains inhabitants as they arrive.
+const characters: Character[] = [];
 for (const spawn of NPC_SPAWNS) {
-  loadModel(spawn.model, { height: 1.75 }).then((npc) => {
-    npc.position.set(spawn.x, spawn.y, spawn.z);
-    npc.rotation.y = spawn.yaw;
-    npc.userData.guideTitle = spawn.guideTitle;
-    npc.userData.guideText = spawn.guideText;
-    npc.userData.npc = true;
-    world.scene.add(npc);
-    world.guideMeshes.push(npc as unknown as THREE.Mesh);
+  Character.spawn({
+    tint: spawn.tint,
+    clip: spawn.clip,
+    position: new THREE.Vector3(spawn.x, spawn.y, spawn.z),
+    yaw: spawn.yaw,
+    waypoints: 'waypoints' in spawn ? [...(spawn as any).waypoints] : undefined,
+    greets: 'greets' in spawn ? (spawn as any).greets : true,
+    guideTitle: spawn.guideTitle,
+    guideText: spawn.guideText,
+  }).then((c) => {
+    world.scene.add(c.root);
+    world.guideMeshes.push(c.root as unknown as THREE.Mesh);
+    characters.push(c);
   }).catch(() => { /* model missing: the station is short-staffed today */ });
 }
 loadModel('/models/Imperial.gltf', { length: 19 }).then((hull) => {
@@ -692,6 +699,7 @@ function frame(now: number) {
   }
 
   for (const m of activeMixers) m.update(dt);
+  for (const c of characters) c.update(dt, walk.camera.position);
 
   // space objects drift and tumble, because nothing out here is bolted down
   for (const f of sector.floaters) {

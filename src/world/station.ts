@@ -227,32 +227,43 @@ export function buildStation(): World {
   return world;
 }
 
-/** Where the locals stand, who they are, and which CC0 model embodies them. */
+/** The cast: animated mannequins (UAL clips), tinted per role. */
 export const NPC_SPAWNS = [
   {
-    model: '/models/Worker.glb', x: 6.4, y: 0, z: -3.2, yaw: -Math.PI / 2.6,
+    tint: 0xff8c2e, clip: 'Fixing_Kneeling', x: 5.2, y: 0, z: -2.9, yaw: -0.66,
     guideTitle: 'THE ENGINEER',
     guideText: 'Fixes engines for scrap. Fixes everything else for reasons she declines to file.',
   },
   {
-    model: '/models/CasualWoman.glb', x: 0.8, y: 0, z: 17.4, yaw: Math.PI,
+    tint: 0x8fd98f, clip: 'Idle_Loop', x: 0.8, y: 0, z: 17.4, yaw: Math.PI,
     guideTitle: 'THE BARTENDER',
     guideText: 'Three hearts, one drink recipe. Pours with the enthusiasm of a tide table.',
   },
   {
-    model: '/models/SciFiWoman.glb', x: -4.2, y: 0, z: 13, yaw: Math.PI / 3,
+    tint: 0x9f7fd4, clip: 'Idle_Talking_Loop', x: -4.2, y: 0, z: 13, yaw: Math.PI / 3,
     guideTitle: 'UNCLAIMED PASSENGER',
-    guideText: 'Has been waiting for a connecting flight since the timetable was abolished.',
+    guideText: 'Talking to the departures board. It has been a long layover. It will be longer.',
   },
   {
-    model: '/models/Spacesuit.glb', x: -6.5, y: 0, z: -10.5, yaw: Math.PI / 2,
+    tint: 0xd0d8e8, clip: 'Idle_Loop', x: -6.5, y: 0, z: -10.5, yaw: Math.PI / 2,
+    waypoints: [
+      { x: -6.5, z: -10.5, wait: 4 },
+      { x: -6.5, z: -2.5, wait: 2 },
+      { x: -3.4, z: -1.8, wait: 5 },
+      { x: -3.4, z: -9.5, wait: 3 },
+    ],
     guideTitle: 'SUIT GUY',
-    guideText: 'Wears the suit indoors. "You never know," he says. He is statistically correct.',
+    guideText: 'Patrols the hangar in a full suit. "You never know," he says. He is statistically correct.',
   },
   {
-    model: '/models/Casual.glb', x: 4.4, y: 0, z: 13.4, yaw: -Math.PI / 1.5,
+    tint: 0x5c8ad4, clip: 'Sitting_Idle_Loop', x: 1.2, y: 0.42, z: 15.4, yaw: Math.PI,
     guideTitle: 'REGULAR PATRON',
     guideText: 'Has a tab. The tab has its own gravitational field.',
+  },
+  {
+    tint: 0xff2e88, clip: 'Dance_Loop', x: -3.6, y: 0, z: 16, yaw: Math.PI / 1.3, greets: false,
+    guideTitle: 'THE RAVER',
+    guideText: 'Heard the music. Responded proportionally. Has been here for six shifts.',
   },
 ] as const;
 

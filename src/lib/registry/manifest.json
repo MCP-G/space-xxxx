@@ -14,7 +14,10 @@
     { "id": "salvage-crate",         "tris": 12,     "role": "pickup", "overrides": ["size"] },
     { "id": "ore-node",              "tris": 8,      "role": "pickup" }
   ],
+  "animated": [
+    { "id": "npc-mannequin", "file": "public/models/AnimLib.gltf (+ .bin)", "source": "Quaternius Universal Animation Library (J-Ponzo glTF port)", "license": "CC0", "sizeMB": 4.0, "clips": 46, "role": "all NPCs via lib/actors/Character (tinted per role)" }
+  ],
   "wanted": [
-    { "id": "npc-animated-set", "note": "R2: Quaternius animated characters or UAL retarget — raw GLBs with clips not available on mirrors; needs pack download + conversion" }
+    { "id": "npc-unique-heads", "note": "R3+: distinct character meshes rigged to the UAL skeleton so the cast stops being colour-coded mannequins" }
   ]
 }

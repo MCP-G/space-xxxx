@@ -1,9 +1,34 @@
 # SPACE XXXX — State of the Universe (handoff)
 
-*Last updated: June 2026 (post-R1). Everything below is implemented,
+*Last updated: June 2026 (post-R2). Everything below is implemented,
 committed, and verified in-browser unless marked otherwise.*
 
 ## AAA plan progress
+
+**R2 (living characters): DONE.** No static humanoid anywhere — the R2 exit
+criterion holds:
+
+- **Animation source found**: the Quaternius Universal Animation Library as
+  glTF (CC0, J-Ponzo port) — `public/models/AnimLib.gltf` + `.bin` —
+  46 clips (Idle/Walk/Run, Idle_Talking, Fixing_Kneeling, Sitting,
+  Dance, combat, etc.) on a Rigify-style rig **with its own skinned
+  Mannequin mesh**. That made retargeting unnecessary: NPCs are tinted
+  mannequin clones (one cached model → whole cast, via R1's ModelCache).
+- **`lib/actors/Character.ts`** — the Character actor: clip state machine
+  with crossfades (`play(name)`), waypoint patrols (Walk_Loop between
+  points, configured waits, smooth turning), and greet behavior (turns to
+  face the player within 2.8m, drifts back after).
+- **The cast** (defined in `station.ts` NPC_SPAWNS, spawned in main):
+  engineer kneels fixing a crate, bartender idles behind the bar, the
+  passenger talks to the departures board, suit guy patrols the hangar on
+  a 4-waypoint loop (movement verified: 1.08m sampled over 4s), a patron
+  sits on a bar stool, and THE RAVER dances. Six animated characters.
+- The five static modular GLBs remain in `public/models` (registered,
+  unused as NPCs) — future props/variants.
+- Known cosmetic gap → manifest "wanted": the cast is colour-coded
+  mannequins; distinct heads/outfits rigged to the UAL skeleton is the
+  R3+ upgrade. Patrolling NPCs don't collide with level geometry (routes
+  are authored clear of obstacles).
 
 **R1 (library spine): DONE.** The reusable asset library exists at `src/lib/`:
 
@@ -26,13 +51,10 @@ committed, and verified in-browser unless marked otherwise.*
   Quaternius arm-posing + idle-mixer support).
 - Tests: `lib/registry/registry.test.ts` locks the contract (12 total pass).
 
-**R2 next — animated characters.** Blocker found during R1: no reachable
-CC0 GLBs ship with animation clips (checked all Quaternius mirrors; clips
-live in site-only zips). R2 starts by downloading the Quaternius Universal
-Animation Library zip (or Mixamo export) and converting to GLB clips that
-retarget onto the existing `npc-*` rigs — ModelCache already returns
-`animations` and models.ts already plays idle clips when present, so it's
-an asset task, not a code task.
+**R3 next — hero spaces**: station interior rebuild on the library
+(`lib/world/Interior.ts` + Dressing per AAA-PLAN §2.3), postprocessing
+chain (bloom/SSAO), audio buses + reverb zones. Exit: hangar + bar pass
+the art-bible checklist at 60fps.
 
 **Still to migrate onto the library** (do opportunistically during R2/R3):
 station/sector builders still use local `box`/`padBox` helpers and the old
@@ -86,7 +108,7 @@ loader; animated replacements are R2 of the AAA plan).
 
 ## Known issues / honest caveats
 
-- NPCs are well-posed statues (no walk/idle animation clips in these GLBs).
+- NPCs are animated mannequins (uniform body, tint-coded); unique meshes are an R3+ asset task.
 - Wreck-field pad is cramped — you disembark against your own hull.
 - Pulse cannon is dodgeable at range by design; may need splash.
 - Headless/software-GL environments can't run 1080p internal (use `?res=480`).
