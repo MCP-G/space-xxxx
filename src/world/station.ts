@@ -1,6 +1,5 @@
 import * as THREE from 'three';
 import { applyVertexSnap } from '../render/PixelPipeline';
-import { buildNpc } from './npc';
 
 export interface ColliderBox {
   min: THREE.Vector3;
@@ -31,10 +30,11 @@ export function box(
   opts: { collide?: boolean; emissive?: boolean; guide?: [string, string] } = {}
 ) {
   const { collide = true, emissive = false, guide } = opts;
-  const mat = new THREE.MeshLambertMaterial({ color });
+  const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.82, metalness: 0.08 });
   if (emissive) mat.emissive = new THREE.Color(color);
   applyVertexSnap(mat);
   const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+  mesh.castShadow = mesh.receiveShadow = true;
   mesh.position.set(x, y, z);
   world.scene.add(mesh);
   if (collide) {
@@ -134,39 +134,7 @@ export function buildStation(): World {
   });
   box(world, 0.6, 0.5, 0.05, -3.5, 1.4, 17.28, PALETTE.trim, { collide: false, emissive: true });
 
-  // --- the locals
-  const engineer = buildNpc({
-    skin: 0xd9a066, shirt: 0xff8c2e, trousers: 0x2a2a3e,
-    hat: 0x2a2a3e, prop: 'wrench',
-    guideTitle: 'THE ENGINEER',
-    guideText: 'Fixes engines for scrap. Fixes everything else for reasons she declines to file.',
-  });
-  engineer.position.set(6.4, 0, -3.2);
-  engineer.rotation.y = -Math.PI / 2.6; // leaning toward her crates
-  scene.add(engineer);
-  world.guideMeshes.push(engineer as unknown as THREE.Mesh);
-
-  const bartender = buildNpc({
-    skin: 0x8fd98f, shirt: 0x3d3d5c, trousers: 0x14141f,
-    hair: 0x14141f, prop: 'mug',
-    guideTitle: 'THE BARTENDER',
-    guideText: 'Three hearts, one drink recipe. Pours with the enthusiasm of a tide table.',
-  });
-  bartender.position.set(0.8, 0, 17.4);
-  bartender.rotation.y = Math.PI; // facing the bar, and therefore you
-  scene.add(bartender);
-  world.guideMeshes.push(bartender as unknown as THREE.Mesh);
-
-  const lounger = buildNpc({
-    skin: 0xc88fd9, shirt: 0x7fffd4, trousers: 0x3a3148,
-    hair: 0x6a4a8a, prop: 'datapad',
-    guideTitle: 'UNCLAIMED PASSENGER',
-    guideText: 'Has been waiting for a connecting flight since the timetable was abolished.',
-  });
-  lounger.position.set(-4.2, 0, 13);
-  lounger.rotation.y = Math.PI / 3;
-  scene.add(lounger);
-  world.guideMeshes.push(lounger as unknown as THREE.Mesh);
+  // NPCs are downloaded GLB characters, loaded async by main (see NPC_SPAWNS)
 
   // --- detail furniture: the difference between a level and a place
   // corridor pipes
@@ -258,6 +226,35 @@ export function buildStation(): World {
 
   return world;
 }
+
+/** Where the locals stand, who they are, and which CC0 model embodies them. */
+export const NPC_SPAWNS = [
+  {
+    model: '/models/Worker.glb', x: 6.4, y: 0, z: -3.2, yaw: -Math.PI / 2.6,
+    guideTitle: 'THE ENGINEER',
+    guideText: 'Fixes engines for scrap. Fixes everything else for reasons she declines to file.',
+  },
+  {
+    model: '/models/CasualWoman.glb', x: 0.8, y: 0, z: 17.4, yaw: Math.PI,
+    guideTitle: 'THE BARTENDER',
+    guideText: 'Three hearts, one drink recipe. Pours with the enthusiasm of a tide table.',
+  },
+  {
+    model: '/models/SciFiWoman.glb', x: -4.2, y: 0, z: 13, yaw: Math.PI / 3,
+    guideTitle: 'UNCLAIMED PASSENGER',
+    guideText: 'Has been waiting for a connecting flight since the timetable was abolished.',
+  },
+  {
+    model: '/models/Spacesuit.glb', x: -6.5, y: 0, z: -10.5, yaw: Math.PI / 2,
+    guideTitle: 'SUIT GUY',
+    guideText: 'Wears the suit indoors. "You never know," he says. He is statistically correct.',
+  },
+  {
+    model: '/models/Casual.glb', x: 4.4, y: 0, z: 13.4, yaw: -Math.PI / 1.5,
+    guideTitle: 'REGULAR PATRON',
+    guideText: 'Has a tab. The tab has its own gravitational field.',
+  },
+] as const;
 
 /** Lines the municipal terminal will say, in order, forever. */
 export const TERMINAL_LINES = [

@@ -46,6 +46,17 @@ export interface Sector {
   salvage: { mesh: THREE.Mesh; position: THREE.Vector3 }[];
   /** Ship's log terminal aboard the derelict. */
   logPos?: THREE.Vector3;
+  /** Decorative objects that drift and tumble gently (never walkable geometry). */
+  floaters: Floater[];
+}
+
+export interface Floater {
+  obj: THREE.Object3D;
+  base: THREE.Vector3;     // resting position
+  amp: number;             // bob amplitude (m)
+  speed: number;           // bob speed
+  phase: number;
+  spin: number;            // rad/s around a lazy axis
 }
 
 export const DERELICT_LOGS = [
@@ -57,7 +68,7 @@ export const DERELICT_LOGS = [
 ];
 
 function rockMat() {
-  const mat = new THREE.MeshLambertMaterial({ color: 0x4a4060 });
+  const mat = new THREE.MeshStandardMaterial({ color: 0x4a4060, roughness: 0.95, metalness: 0.02 });
   applyVertexSnap(mat);
   return mat;
 }
@@ -67,10 +78,11 @@ function padBox(
   w: number, h: number, d: number, x: number, y: number, z: number,
   color: number, emissive = false
 ) {
-  const mat = new THREE.MeshLambertMaterial({ color });
+  const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.8, metalness: 0.1 });
   if (emissive) mat.emissive = new THREE.Color(color);
   applyVertexSnap(mat);
   const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+  mesh.castShadow = mesh.receiveShadow = true;
   mesh.position.set(x, y, z);
   parent.add(mesh);
   colliders.push({
@@ -85,7 +97,13 @@ export function buildSector(world: World, seed: number): Sector {
   const rnd = sfc32(0x9e3779b9, 0x243f6a88, 0xb7e15162, seed);
   const scene = new THREE.Group(); // detachable root: scene-like for adds below
   world.scene.add(scene);
-  const sector: Sector = { seed, root: scene, pois: [], asteroids: [], salvage: [] };
+  const sector: Sector = { seed, root: scene, pois: [], asteroids: [], salvage: [], floaters: [] };
+  const float = (obj: THREE.Object3D, amp = 0.6, spin = 0.02) => {
+    sector.floaters.push({
+      obj, base: obj.position.clone(),
+      amp, speed: 0.2 + rnd() * 0.3, phase: rnd() * Math.PI * 2, spin,
+    });
+  };
 
   const glowMat = new THREE.MeshBasicMaterial({ color: PALETTE.trim });
   const oreMat = new THREE.MeshBasicMaterial({ color: PALETTE.accentB });
@@ -121,14 +139,22 @@ export function buildSector(world: World, seed: number): Sector {
       sizeAttenuation: false,
       opacity: layer === 0 ? 0.6 : 1,
       transparent: layer === 0,
+      fog: false, // stars sit beyond the fog's far plane — never fog them out
     }));
     scene.add(stars);
   }
 
   // sun-ish directional light so exteriors read in space
   const sun = new THREE.DirectionalLight(0xfff0d8, 2.6);
-  sun.position.set(0.4, 0.7, -0.6);
+  sun.position.set(40, 70, -60);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(2048, 2048);
+  sun.shadow.camera.near = 10;
+  sun.shadow.camera.far = 300;
+  const sc = sun.shadow.camera;
+  sc.left = -80; sc.right = 80; sc.top = 80; sc.bottom = -80;
   scene.add(sun);
+  scene.add(sun.target);
   // and a cool fill from the opposite side so shadow faces aren't pitch black
   const fill = new THREE.DirectionalLight(0x6080ff, 0.9);
   fill.position.set(-0.5, -0.3, 0.6);
@@ -148,6 +174,7 @@ export function buildSector(world: World, seed: number): Sector {
     rock.position.copy(p);
     rock.rotation.set(rnd() * 3, rnd() * 3, rnd() * 3);
     scene.add(rock);
+    float(rock, 0.8, 0.04 + rnd() * 0.05);
     sector.asteroids.push({ position: p, radius: r });
   }
   // mining outpost: a pad bolted to the cluster's largest rock, with ore
@@ -253,6 +280,7 @@ export function buildSector(world: World, seed: number): Sector {
   }
   derelict.position.copy(derelictPos);
   scene.add(derelict);
+  float(derelict, 0.35, 0); // hull breathes; the walkable deck stays put
 
   const dPadColliders: ColliderBox[] = [];
   const dPadY = derelictPos.y - 8;
@@ -371,6 +399,7 @@ export function buildSector(world: World, seed: number): Sector {
   const pylon = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 1.4, 18, 6), bMat);
   pylon.position.copy(beaconPos);
   scene.add(pylon);
+  float(pylon, 0.3, 0);
   const lamp = new THREE.Mesh(new THREE.OctahedronGeometry(2), new THREE.MeshBasicMaterial({ color: PALETTE.accentB }));
   lamp.position.copy(beaconPos).add(new THREE.Vector3(0, 11, 0));
   lamp.name = 'beacon-lamp';
@@ -426,6 +455,7 @@ export function buildSector(world: World, seed: number): Sector {
     hulk.position.copy(wreckPos).add(new THREE.Vector3((rnd() - 0.5) * 80, (rnd() - 0.5) * 40, (rnd() - 0.5) * 80));
     hulk.rotation.y = rnd() * Math.PI * 2;
     scene.add(hulk);
+    float(hulk, 1.4, 0.06 + rnd() * 0.06);
   }
   const wPadColliders: ColliderBox[] = [];
   const wPadY = wreckPos.y - 12;
@@ -468,6 +498,7 @@ export function buildSector(world: World, seed: number): Sector {
     );
     puff.position.copy(nebPos).add(new THREE.Vector3((rnd() - 0.5) * 70, (rnd() - 0.5) * 40, (rnd() - 0.5) * 70));
     scene.add(puff);
+    float(puff, 3, 0.008);
   }
   const nebLight = new THREE.PointLight(0xff2e88, 40, 160, 1.4);
   nebLight.position.copy(nebPos);
@@ -491,6 +522,7 @@ export function buildSector(world: World, seed: number): Sector {
   mono.userData.guideTitle = 'THE MONOLITH';
   mono.userData.guideText = 'Ratio 1:4:9. It is not transmitting. It is, however, judging.';
   scene.add(mono);
+  float(mono, 0.9, 0.02);
   const monoRim = new THREE.PointLight(0x9fd8ff, 30, 90, 1.5);
   monoRim.position.copy(monoPos).add(new THREE.Vector3(8, 10, 8));
   scene.add(monoRim);

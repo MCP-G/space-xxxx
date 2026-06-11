@@ -64,13 +64,15 @@ const POST_FRAG = /* glsl */ `
       col.b = texture2D(tScene, uv - vec2(off, 0.0)).b;
     }
 
-    // the scene target holds linear values; lift exposure, encode to sRGB
-    col = pow(col * 1.25, vec3(1.0 / 2.2));
+    // filmic (ACES-ish) tonemap, then encode to sRGB — photoreal-leaning
+    col *= 1.15;
+    col = (col * (2.51 * col + 0.03)) / (col * (2.43 * col + 0.59) + 0.14);
+    col = pow(clamp(col, 0.0, 1.0), vec3(1.0 / 2.2));
 
-    // ordered dither, then quantize each channel to limited levels
+    // ordered dither, then quantize — finer now, a texture not a costume
     vec2 pix = floor(uv * uResolution);
     float d = bayer(pix);
-    float levels = 14.0;
+    float levels = 24.0;
     col = floor((col + d / levels) * levels + 0.5) / levels;
 
     // whisper of scanlines on internal rows
@@ -91,6 +93,8 @@ export class PixelPipeline {
 
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
     this.target = new THREE.WebGLRenderTarget(16, 16, {
       minFilter: THREE.NearestFilter,

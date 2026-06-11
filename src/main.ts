@@ -1,7 +1,8 @@
 import './style.css';
 import * as THREE from 'three';
 import { PixelPipeline } from './render/PixelPipeline';
-import { buildStation, TERMINAL_LINES } from './world/station';
+import { buildStation, TERMINAL_LINES, NPC_SPAWNS } from './world/station';
+import { loadModel, activeMixers } from './render/models';
 import { buildSector, DERELICT_LOGS, type Poi } from './world/sector';
 import { WalkController } from './player/WalkController';
 import { FlightController } from './player/FlightController';
@@ -32,6 +33,31 @@ const interactions = new InteractionRegistry();
 
 const player = new PlayerState();
 player.load();
+
+// --- downloaded CC0 models (Quaternius): NPCs, player hull, hangar prop.
+// All async; the procedural versions stand in until they arrive.
+for (const spawn of NPC_SPAWNS) {
+  loadModel(spawn.model, { height: 1.75 }).then((npc) => {
+    npc.position.set(spawn.x, spawn.y, spawn.z);
+    npc.rotation.y = spawn.yaw;
+    npc.userData.guideTitle = spawn.guideTitle;
+    npc.userData.guideText = spawn.guideText;
+    npc.userData.npc = true;
+    world.scene.add(npc);
+    world.guideMeshes.push(npc as unknown as THREE.Mesh);
+  }).catch(() => { /* model missing: the station is short-staffed today */ });
+}
+loadModel('/models/Imperial.gltf', { length: 19 }).then((hull) => {
+  ship.useExternalModel(hull);
+}).catch(() => { /* keep the procedural hull */ });
+loadModel('/models/Challenger.gltf', { length: 7 }).then((prop) => {
+  prop.position.set(5.5, 0, -12.5);
+  prop.rotation.y = -0.4;
+  prop.userData.guideTitle = 'SOMEONE ELSE\'S SHIP';
+  prop.userData.guideText = 'Parked diagonally. The hangar is rated for exactly this crime.';
+  world.scene.add(prop);
+  world.guideMeshes.push(prop as unknown as THREE.Mesh);
+}).catch(() => {});
 
 // one-shot environment capture from open space: stars + sun reflect off
 // MeshStandardMaterial hulls (the ship, mainly)
@@ -65,6 +91,7 @@ function enterFlight() {
   walk.active = false;
   flight.active = true;
   flight.syncToShip();
+  ship.setPilotView(true);
   audio.setMode('flight');
   hud.hideGuide();
   hud.say('THE HEART OF MILD INCONVENIENCE reluctantly agrees to fly.');
@@ -76,6 +103,7 @@ function enterWalk(x: number, y: number, z: number) {
   mode = 'walk';
   flight.active = false;
   walk.active = true;
+  ship.setPilotView(false);
   walk.setPosition(x, y, z);
   audio.setMode('station');
   audio.setThrust(0);
@@ -656,6 +684,17 @@ function frame(now: number) {
     if (m.userData.npc) {
       m.position.y = Math.sin(t * 1.4 + i * 2.4) * 0.03;
       m.rotation.y += Math.sin(t * 0.4 + i) * 0.0006;
+    }
+  }
+
+  for (const m of activeMixers) m.update(dt);
+
+  // space objects drift and tumble, because nothing out here is bolted down
+  for (const f of sector.floaters) {
+    f.obj.position.y = f.base.y + Math.sin(t * f.speed + f.phase) * f.amp;
+    if (f.spin) {
+      f.obj.rotation.y += f.spin * dt;
+      f.obj.rotation.x += f.spin * 0.37 * dt;
     }
   }
 

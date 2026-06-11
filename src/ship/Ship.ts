@@ -17,6 +17,7 @@ interface LocalBox {
  */
 export class Ship {
   readonly group = new THREE.Group();
+  readonly exterior = new THREE.Group();
   readonly velocity = new THREE.Vector3();
   /** Seat position in local space — camera goes here when piloting. */
   readonly seatLocal = new THREE.Vector3(0, 1.35, -2.6);
@@ -54,7 +55,17 @@ export class Ship {
     const add = (geo: THREE.BufferGeometry, mat: THREE.Material, x: number, y: number, z: number) => {
       const m = new THREE.Mesh(geo, mat);
       m.position.set(x, y, z);
+      m.castShadow = m.receiveShadow = true;
       this.group.add(m);
+      return m;
+    };
+    // decorative exterior — swapped out when a downloaded hull model loads
+    this.group.add(this.exterior);
+    const addExt = (geo: THREE.BufferGeometry, mat: THREE.Material, x: number, y: number, z: number) => {
+      const m = new THREE.Mesh(geo, mat);
+      m.position.set(x, y, z);
+      m.castShadow = m.receiveShadow = true;
+      this.exterior.add(m);
       return m;
     };
 
@@ -69,28 +80,28 @@ export class Ship {
     );
 
     // cockpit nose: faceted, swept — stacked tapering sections + canopy
-    const noseA = add(new THREE.BoxGeometry(3.6, 2.2, 1.8), hullMat, 0, 1.15, -4.0);
+    const noseA = addExt(new THREE.BoxGeometry(3.6, 2.2, 1.8), hullMat, 0, 1.15, -4.0);
     noseA.rotation.x = 0.04;
-    const noseB = add(new THREE.BoxGeometry(2.7, 1.7, 1.6), hullMat, 0, 1.0, -5.5);
+    const noseB = addExt(new THREE.BoxGeometry(2.7, 1.7, 1.6), hullMat, 0, 1.0, -5.5);
     noseB.rotation.x = 0.1;
-    const noseC = add(new THREE.BoxGeometry(1.7, 1.0, 1.6), hullMat, 0, 0.85, -6.9);
+    const noseC = addExt(new THREE.BoxGeometry(1.7, 1.0, 1.6), hullMat, 0, 0.85, -6.9);
     noseC.rotation.x = 0.16;
-    add(new THREE.BoxGeometry(0.9, 0.5, 1.2), stripeMat, 0, 0.72, -7.9).rotation.x = 0.2;
+    addExt(new THREE.BoxGeometry(0.9, 0.5, 1.2), stripeMat, 0, 0.72, -7.9).rotation.x = 0.2;
     // canopy: angled mirror-glass slab over the cockpit
-    const canopy = add(new THREE.BoxGeometry(1.7, 0.7, 2.0), canopyMat, 0, 2.05, -4.4);
+    const canopy = addExt(new THREE.BoxGeometry(1.7, 0.7, 2.0), canopyMat, 0, 2.05, -4.4);
     canopy.rotation.x = -0.32;
     // hull racing stripes (every disreputable freighter has them)
-    add(new THREE.BoxGeometry(0.5, 0.06, 6.4), stripeMat, -1.2, 2.73, 0);
-    add(new THREE.BoxGeometry(0.5, 0.06, 6.4), stripeMat, 1.2, 2.73, 0);
+    addExt(new THREE.BoxGeometry(0.5, 0.06, 6.4), stripeMat, -1.2, 2.73, 0);
+    addExt(new THREE.BoxGeometry(0.5, 0.06, 6.4), stripeMat, 1.2, 2.73, 0);
 
     // swept wings + tail fin
-    const wingL = add(new THREE.BoxGeometry(3.4, 0.18, 2.6), hullMat, -3.6, 0.6, 1.2);
+    const wingL = addExt(new THREE.BoxGeometry(3.4, 0.18, 2.6), hullMat, -3.6, 0.6, 1.2);
     wingL.rotation.z = 0.1; wingL.rotation.y = -0.35;
-    const wingR = add(new THREE.BoxGeometry(3.4, 0.18, 2.6), hullMat, 3.6, 0.6, 1.2);
+    const wingR = addExt(new THREE.BoxGeometry(3.4, 0.18, 2.6), hullMat, 3.6, 0.6, 1.2);
     wingR.rotation.z = -0.1; wingR.rotation.y = 0.35;
-    add(new THREE.BoxGeometry(0.5, 0.1, 1.4), stripeMat, -4.9, 0.78, 1.7).rotation.y = -0.35;
-    add(new THREE.BoxGeometry(0.5, 0.1, 1.4), stripeMat, 4.9, 0.78, 1.7).rotation.y = 0.35;
-    const fin = add(new THREE.BoxGeometry(0.16, 1.8, 1.6), hullMat, 0, 3.4, 2.4);
+    addExt(new THREE.BoxGeometry(0.5, 0.1, 1.4), stripeMat, -4.9, 0.78, 1.7).rotation.y = -0.35;
+    addExt(new THREE.BoxGeometry(0.5, 0.1, 1.4), stripeMat, 4.9, 0.78, 1.7).rotation.y = 0.35;
+    const fin = addExt(new THREE.BoxGeometry(0.16, 1.8, 1.6), hullMat, 0, 3.4, 2.4);
     fin.rotation.x = 0.25;
 
     // cockpit bulkhead with door gap, between hold and nose
@@ -116,72 +127,72 @@ export class Ship {
     );
 
     // engine pods, port and starboard
-    add(new THREE.CylinderGeometry(0.6, 0.8, 2.4), hullMat, -2.6, 1.2, 2.4).rotation.x = Math.PI / 2;
-    add(new THREE.CylinderGeometry(0.6, 0.8, 2.4), hullMat, 2.6, 1.2, 2.4).rotation.x = Math.PI / 2;
+    addExt(new THREE.CylinderGeometry(0.6, 0.8, 2.4), hullMat, -2.6, 1.2, 2.4).rotation.x = Math.PI / 2;
+    addExt(new THREE.CylinderGeometry(0.6, 0.8, 2.4), hullMat, 2.6, 1.2, 2.4).rotation.x = Math.PI / 2;
     // engine glow
     const glowMat = new THREE.MeshBasicMaterial({ color: PALETTE.trim });
-    add(new THREE.BoxGeometry(0.7, 0.7, 0.1), glowMat, -2.6, 1.2, 3.62);
-    add(new THREE.BoxGeometry(0.7, 0.7, 0.1), glowMat, 2.6, 1.2, 3.62);
+    addExt(new THREE.BoxGeometry(0.7, 0.7, 0.1), glowMat, -2.6, 1.2, 3.62);
+    addExt(new THREE.BoxGeometry(0.7, 0.7, 0.1), glowMat, 2.6, 1.2, 3.62);
 
     // --- greebles: the difference between "shape" and "machine"
     // landing skids
     for (const sx of [-1.9, 1.9]) {
-      add(new THREE.BoxGeometry(0.22, 0.25, 0.22), darkMat, sx, -0.3, -2.2);
-      add(new THREE.BoxGeometry(0.45, 0.1, 1.9), darkMat, sx, -0.4, -2.2);
-      add(new THREE.BoxGeometry(0.22, 0.25, 0.22), darkMat, sx, -0.3, 1.8);
-      add(new THREE.BoxGeometry(0.45, 0.1, 1.9), darkMat, sx, -0.4, 1.8);
+      addExt(new THREE.BoxGeometry(0.22, 0.25, 0.22), darkMat, sx, -0.3, -2.2);
+      addExt(new THREE.BoxGeometry(0.45, 0.1, 1.9), darkMat, sx, -0.4, -2.2);
+      addExt(new THREE.BoxGeometry(0.22, 0.25, 0.22), darkMat, sx, -0.3, 1.8);
+      addExt(new THREE.BoxGeometry(0.45, 0.1, 1.9), darkMat, sx, -0.4, 1.8);
     }
     // antennae cluster on the roof
-    add(new THREE.CylinderGeometry(0.02, 0.02, 1.6, 4), darkMat, -0.8, 3.4, -1.6);
-    add(new THREE.CylinderGeometry(0.015, 0.015, 1.1, 4), darkMat, -0.95, 3.2, -1.4);
-    add(new THREE.SphereGeometry(0.07, 6, 5), stripeMat, -0.8, 4.2, -1.6);
+    addExt(new THREE.CylinderGeometry(0.02, 0.02, 1.6, 4), darkMat, -0.8, 3.4, -1.6);
+    addExt(new THREE.CylinderGeometry(0.015, 0.015, 1.1, 4), darkMat, -0.95, 3.2, -1.4);
+    addExt(new THREE.SphereGeometry(0.07, 6, 5), stripeMat, -0.8, 4.2, -1.6);
     // sensor dish, slightly off true because of course it is
-    const dish = add(new THREE.CylinderGeometry(0.35, 0.1, 0.18, 10), hullMat, 0.9, 3.0, -1.2);
+    const dish = addExt(new THREE.CylinderGeometry(0.35, 0.1, 0.18, 10), hullMat, 0.9, 3.0, -1.2);
     dish.rotation.z = -0.4; dish.rotation.x = 0.2;
     // hull panel lines: thin dark strips along the sides
     for (const sx of [-2.21, 2.21]) {
-      add(new THREE.BoxGeometry(0.05, 0.06, 5.6), darkMat, sx * 1.01, 1.9, 0);
-      add(new THREE.BoxGeometry(0.05, 0.06, 5.6), darkMat, sx * 1.01, 0.5, 0);
-      add(new THREE.BoxGeometry(0.05, 0.8, 0.06), darkMat, sx * 1.01, 1.2, -1.4);
-      add(new THREE.BoxGeometry(0.05, 0.8, 0.06), darkMat, sx * 1.01, 1.2, 1.2);
+      addExt(new THREE.BoxGeometry(0.05, 0.06, 5.6), darkMat, sx * 1.01, 1.9, 0);
+      addExt(new THREE.BoxGeometry(0.05, 0.06, 5.6), darkMat, sx * 1.01, 0.5, 0);
+      addExt(new THREE.BoxGeometry(0.05, 0.8, 0.06), darkMat, sx * 1.01, 1.2, -1.4);
+      addExt(new THREE.BoxGeometry(0.05, 0.8, 0.06), darkMat, sx * 1.01, 1.2, 1.2);
     }
     // vents behind the cockpit
     for (let i = 0; i < 4; i++) {
-      add(new THREE.BoxGeometry(0.5, 0.05, 0.16), darkMat, -1.1 + i * 0.7, 2.72, -2.6);
+      addExt(new THREE.BoxGeometry(0.5, 0.05, 0.16), darkMat, -1.1 + i * 0.7, 2.72, -2.6);
     }
     // engine pod detail rings + intake cones
     for (const sx of [-2.6, 2.6]) {
-      add(new THREE.TorusGeometry(0.66, 0.05, 6, 12), darkMat, sx, 1.2, 2.0).rotation.x = 0;
-      add(new THREE.TorusGeometry(0.7, 0.05, 6, 12), darkMat, sx, 1.2, 3.0).rotation.x = 0;
-      const cone = add(new THREE.ConeGeometry(0.5, 0.7, 10), darkMat, sx, 1.2, 1.0);
+      addExt(new THREE.TorusGeometry(0.66, 0.05, 6, 12), darkMat, sx, 1.2, 2.0).rotation.x = 0;
+      addExt(new THREE.TorusGeometry(0.7, 0.05, 6, 12), darkMat, sx, 1.2, 3.0).rotation.x = 0;
+      const cone = addExt(new THREE.ConeGeometry(0.5, 0.7, 10), darkMat, sx, 1.2, 1.0);
       cone.rotation.x = -Math.PI / 2;
     }
     // running lights: red port, green starboard (tradition survives everything)
-    add(new THREE.SphereGeometry(0.08, 6, 5), new THREE.MeshBasicMaterial({ color: 0xff3030 }), -5.0, 0.7, 1.7);
-    add(new THREE.SphereGeometry(0.08, 6, 5), new THREE.MeshBasicMaterial({ color: 0x30ff60 }), 5.0, 0.7, 1.7);
+    addExt(new THREE.SphereGeometry(0.08, 6, 5), new THREE.MeshBasicMaterial({ color: 0xff3030 }), -5.0, 0.7, 1.7);
+    addExt(new THREE.SphereGeometry(0.08, 6, 5), new THREE.MeshBasicMaterial({ color: 0x30ff60 }), 5.0, 0.7, 1.7);
 
     // cockpit dashboard: button rows and a tiny screen that worries
-    const dashTop = add(new THREE.BoxGeometry(1.7, 0.1, 0.7), darkMat, 0, 1.28, -3.45);
+    const dashTop = addExt(new THREE.BoxGeometry(1.7, 0.1, 0.7), darkMat, 0, 1.28, -3.45);
     dashTop.rotation.x = 0.25;
     for (let i = 0; i < 6; i++) {
       const lit = i % 2 === 0;
-      add(
+      addExt(
         new THREE.BoxGeometry(0.1, 0.05, 0.1),
         new THREE.MeshBasicMaterial({ color: lit ? 0x7fffd4 : 0xff2e88 }),
         -0.6 + i * 0.24, 1.36, -3.42
       );
     }
-    const dashScreen = add(new THREE.BoxGeometry(0.5, 0.3, 0.04), new THREE.MeshBasicMaterial({ color: 0x103830 }), 0, 1.55, -3.62);
+    const dashScreen = addExt(new THREE.BoxGeometry(0.5, 0.3, 0.04), new THREE.MeshBasicMaterial({ color: 0x103830 }), 0, 1.55, -3.62);
     dashScreen.rotation.x = -0.2;
     // a steering yoke, vestigial but reassuring
-    add(new THREE.TorusGeometry(0.18, 0.025, 6, 12), darkMat, 0, 1.15, -3.15).rotation.x = 0.4;
+    addExt(new THREE.TorusGeometry(0.18, 0.025, 6, 12), darkMat, 0, 1.15, -3.15).rotation.x = 0.4;
 
     // hold shelving + strapped cargo
-    add(new THREE.BoxGeometry(0.16, 1.8, 2.6), darkMat, -2.05, 0.9, 1.4);
-    add(new THREE.BoxGeometry(0.7, 0.08, 2.4), darkMat, -1.8, 1.0, 1.4);
-    add(new THREE.BoxGeometry(0.7, 0.08, 2.4), darkMat, -1.8, 1.7, 1.4);
-    add(new THREE.BoxGeometry(0.5, 0.5, 0.6), trimMat, -1.8, 1.32, 0.7);
-    add(new THREE.BoxGeometry(0.5, 0.4, 0.5), stripeMat, -1.8, 1.27, 1.9);
+    addExt(new THREE.BoxGeometry(0.16, 1.8, 2.6), darkMat, -2.05, 0.9, 1.4);
+    addExt(new THREE.BoxGeometry(0.7, 0.08, 2.4), darkMat, -1.8, 1.0, 1.4);
+    addExt(new THREE.BoxGeometry(0.7, 0.08, 2.4), darkMat, -1.8, 1.7, 1.4);
+    addExt(new THREE.BoxGeometry(0.5, 0.5, 0.6), trimMat, -1.8, 1.32, 0.7);
+    addExt(new THREE.BoxGeometry(0.5, 0.4, 0.5), stripeMat, -1.8, 1.27, 1.9);
 
     // interior light so the hold isn't a cave
     const holdLight = new THREE.PointLight(PALETTE.accentB, 6, 8, 1.6);
@@ -229,6 +240,28 @@ export class Ship {
   yaw() {
     const e = new THREE.Euler().setFromQuaternion(this.group.quaternion, 'YXZ');
     return e.y;
+  }
+
+  /**
+   * Replace the procedural exterior with a downloaded hull model. The
+   * walkable interior stays exactly where it was — the model is a shell
+   * around it (its inside faces are backface-culled, so the hold still
+   * reads clean from within).
+   */
+  private externalModel: THREE.Object3D | null = null;
+
+  useExternalModel(model: THREE.Object3D) {
+    this.exterior.visible = false;
+    model.position.y = -0.2;        // settle the hull around the deck plane
+    model.position.z = -1.2;        // nose-weighted, ramp clear at the stern
+    this.externalModel = model;
+    this.group.add(model);
+  }
+
+  /** Hide the hull shell while piloting so the camera isn't inside it. */
+  setPilotView(piloting: boolean) {
+    if (this.externalModel) this.externalModel.visible = !piloting;
+    else this.exterior.visible = !piloting ? true : this.exterior.visible;
   }
 
   /** Park: snap to position with yaw only (level flight attitude). */
