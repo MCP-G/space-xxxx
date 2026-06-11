@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { applyVertexSnap } from '../render/PixelPipeline';
 import { PALETTE, type ColliderBox, type World } from './station';
 import { DecaySystem } from '../lib/world/Decay';
+import { WindowSystem } from '../lib/world/Windows';
 
 // Deterministic PRNG (sfc32). A sector seed fully determines the sector —
 // this is the function that will eventually live behind a SectorDeed token.
@@ -540,12 +541,14 @@ export function buildSector(world: World, seed: number): Sector {
   // (guarded: canvas textures need a DOM; node tests build sectors too)
   if (typeof document !== 'undefined') {
     const decay = new DecaySystem(scene, seed ^ 0xdeca1);
+    const windows = new WindowSystem(scene, seed ^ 0x717d05);
     for (const poi of sector.pois) {
       if (!poi.dock) continue;
       decay.apply(poi.dock.colliders, {
         wallDensity: poi.kind === 'derelict' ? 1.8 : 0.9,
         floorDensity: poi.kind === 'derelict' ? 3.5 : 2,
       });
+      windows.apply(poi.dock.colliders, { density: 0.5 });
     }
   }
 

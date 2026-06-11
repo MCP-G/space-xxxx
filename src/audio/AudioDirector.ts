@@ -18,6 +18,7 @@ export class AudioDirector {
   private leadChannel!: Tone.Channel;
   private kick!: Tone.MembraneSynth;
   private hatChannel!: Tone.Channel;
+  private musicGain!: Tone.Gain;
   private thrustNoise!: Tone.Noise;
   private thrustGain!: Tone.Gain;
   private mode: MusicMode = 'station';
@@ -30,7 +31,9 @@ export class AudioDirector {
     await Tone.start();
 
     this.master = new Tone.Limiter(-1).toDestination();
-    this.crusher = new Tone.BitCrusher(6).connect(this.master);
+    // music routes through a duckable gain so stingers can take the stage
+    this.musicGain = new Tone.Gain(1).connect(this.master);
+    this.crusher = new Tone.BitCrusher(6).connect(this.musicGain);
     this.crusher.wet.value = 0.35;
 
     // --- acid bass: MonoSynth + filter envelope, A minor-ish 16-step line
@@ -221,6 +224,63 @@ export class AudioDirector {
     s.triggerAttackRelease(900, '16n');
     s.frequency.rampTo(120, 0.12);
     setTimeout(() => s.dispose(), 400);
+  }
+
+  /**
+   * Docking/undocking stinger: the groove ducks, and a dramatic sequence
+   * in A (the score's home key) takes over — rising heroics for undock,
+   * a settling resolve for dock. ~3.5s, then the groove fades back in.
+   */
+  stinger(direction: 'dock' | 'undock') {
+    if (!this.started) return;
+    this.musicGain.gain.rampTo(0.18, 0.25);
+
+    // swelling pad chord (A major — same tonic, brighter world)
+    const pad = new Tone.PolySynth(Tone.Synth, {
+      oscillator: { type: 'sawtooth' },
+      envelope: { attack: 0.6, decay: 0.8, sustain: 0.55, release: 1.6 },
+    }).connect(this.master);
+    pad.volume.value = -14;
+    const padChord = direction === 'undock'
+      ? ['A2', 'E3', 'A3', 'C#4']
+      : ['A2', 'E3', 'A3', 'B3'];     // add9: home, but gently unresolved
+    pad.triggerAttackRelease(padChord, 2.6);
+
+    // arpeggio lead: rising to the stars / descending to the deck
+    const lead = new Tone.Synth({
+      oscillator: { type: 'triangle' },
+      envelope: { attack: 0.01, decay: 0.3, sustain: 0.1, release: 0.4 },
+    }).connect(this.master);
+    lead.volume.value = -10;
+    const run = direction === 'undock'
+      ? ['A3', 'C#4', 'E4', 'A4', 'C#5', 'E5']
+      : ['E5', 'C#5', 'A4', 'E4', 'C#4', 'A3'];
+    run.forEach((n, i) => {
+      setTimeout(() => lead.triggerAttackRelease(n, '8n'), 280 + i * 230);
+    });
+
+    // cinematic boom + riser
+    const boom = new Tone.MembraneSynth({
+      pitchDecay: 0.09, octaves: 7,
+      envelope: { attack: 0.001, decay: 1.2, sustain: 0 },
+    }).connect(this.master);
+    boom.volume.value = -4;
+    boom.triggerAttackRelease('A0', '2n');
+    if (direction === 'undock') {
+      const riser = new Tone.Noise('white').start();
+      const riserFilter = new Tone.Filter(300, 'bandpass');
+      const riserGain = new Tone.Gain(0).connect(this.master);
+      riser.connect(riserFilter).connect(riserGain);
+      riserGain.gain.rampTo(0.12, 1.8);
+      riserFilter.frequency.rampTo(3200, 2.2);
+      setTimeout(() => { riserGain.gain.rampTo(0, 0.5); setTimeout(() => { riser.dispose(); riserFilter.dispose(); riserGain.dispose(); }, 800); }, 2300);
+    }
+
+    // restore the groove
+    setTimeout(() => {
+      this.musicGain.gain.rampTo(1, 1.2);
+      setTimeout(() => { pad.dispose(); lead.dispose(); boom.dispose(); }, 2200);
+    }, 3200);
   }
 
   /** Pulse cannon: a deep descending whomp with bite. */

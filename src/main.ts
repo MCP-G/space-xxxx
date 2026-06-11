@@ -6,7 +6,9 @@ import { loadModel, activeMixers } from './render/models';
 import { registry } from './lib/registry/AssetRegistry';
 import './lib/registry/prefabs';
 import { Character } from './lib/actors/Character';
+import { Cinematic } from './game/cinematic';
 import { DecaySystem } from './lib/world/Decay';
+import { WindowSystem } from './lib/world/Windows';
 import { buildSector, DERELICT_LOGS, type Poi } from './world/sector';
 import { WalkController } from './player/WalkController';
 import { FlightController } from './player/FlightController';
@@ -43,6 +45,8 @@ new DecaySystem(world.scene, 777).apply(world.colliders, {
   wallDensity: 1.6,
   floorDensity: 3,
 });
+// windows: the station would like you to believe every wall faces space
+new WindowSystem(world.scene, 777).apply(world.colliders, { density: 0.7 });
 
 // --- downloaded CC0 models (Quaternius): NPCs, player hull, hangar prop.
 // All async; the world simply gains inhabitants as they arrive.
@@ -102,7 +106,9 @@ walk.setPosition(0, 0, -4, Math.PI);
 // active landing pad (its colliders + floor join the walkable set)
 let activePoi: Poi | null = null;
 
-function enterFlight() {
+const cine = new Cinematic();
+
+function beginFlight() {
   mode = 'fly';
   walk.active = false;
   flight.active = true;
@@ -113,6 +119,33 @@ function enterFlight() {
   hud.say('THE HEART OF MILD INCONVENIENCE reluctantly agrees to fly.');
   pipeline.triggerGlitch(0.5);
   audio.glitchBurst();
+}
+
+/** Undock: a letterboxed hero shot — the ship lifts as the camera sweeps. */
+function enterFlight(withCine = true) {
+  if (!withCine || cine.active) { beginFlight(); return; }
+  mode = 'fly';
+  walk.active = false;
+  flight.active = false;
+  ship.setPilotView(false); // the star of the shot should be visible
+  hud.setCinematic(true);
+  hud.hideGuide();
+  audio.stinger('undock');
+  const y0 = ship.position.y;
+  const yaw0 = Math.atan2(ship.position.x - walk.camera.position.x, ship.position.z - walk.camera.position.z) + Math.PI / 2;
+  cine.start(() => ship.position, {
+    duration: 3.6,
+    radius: 15,
+    yawStart: yaw0,
+    yawEnd: yaw0 + Math.PI * 0.85,
+    heightStart: 1.5,
+    heightEnd: 7,
+    onProgress: (k) => { ship.position.y = y0 + k * 2.6; },
+    onDone: () => {
+      hud.setCinematic(false);
+      beginFlight();
+    },
+  });
 }
 
 function enterWalk(x: number, y: number, z: number) {
@@ -219,6 +252,7 @@ const combat = new CombatSystem(world.scene, {
     void pos;
   },
   onPlayerHit: (dmg) => {
+    if (cine.active) return; // the camera crew has plot armor
     player.hull -= dmg;
     pipeline.triggerGlitch(0.9);
     audio.glitchBurst();
@@ -503,7 +537,42 @@ function nearestDock(): DockSpot | null {
   return null;
 }
 
-function dockAt(spot: DockSpot) {
+/** Dock: the ship glides onto the pad while the camera cranes around it. */
+function dockAt(spot: DockSpot, withCine = true) {
+  if (withCine && !cine.active) {
+    flight.active = false;
+    ship.setPilotView(false);
+    hud.setCinematic(true);
+    hud.setFlight(null);
+    audio.stinger('dock');
+    audio.setThrust(0);
+    const p0 = ship.position.clone();
+    const q0 = ship.quaternion.clone();
+    const q1 = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, spot.shipYaw, 0));
+    const yaw0 = Math.atan2(p0.x - spot.shipPos.x, p0.z - spot.shipPos.z);
+    cine.start(() => ship.position, {
+      duration: 3.8,
+      radius: 16,
+      yawStart: yaw0 + 0.4,
+      yawEnd: yaw0 + 0.4 + Math.PI * 0.7,
+      heightStart: 8,
+      heightEnd: 2.2,
+      onProgress: (k) => {
+        ship.position.lerpVectors(p0, spot.shipPos, k);
+        ship.quaternion.slerpQuaternions(q0, q1, k);
+        ship.velocity.set(0, 0, 0);
+      },
+      onDone: () => {
+        hud.setCinematic(false);
+        finalizeDock(spot);
+      },
+    });
+    return;
+  }
+  finalizeDock(spot);
+}
+
+function finalizeDock(spot: DockSpot) {
   ship.park(spot.shipPos.x, spot.shipPos.y, spot.shipPos.z, spot.shipYaw);
   activePoi = spot.poi;
   enterWalk(spot.standPos.x, spot.shipPos.y, spot.standPos.z);
@@ -739,7 +808,12 @@ function frame(now: number) {
   const lamp = world.scene.getObjectByName('beacon-lamp');
   if (lamp) { lamp.rotation.y = t; lamp.visible = Math.sin(t * 2.5) > -0.6; }
 
-  if (mode === 'walk') {
+  if (cine.active) {
+    cine.update(dt, walk.camera);
+    hud.setPrompt(null);
+    hud.setNav(null);
+    hud.setFlight(null);
+  } else if (mode === 'walk') {
     ship.seatWorld(seatPos);
     seatInteract.enabled = true;
     const colliders = [

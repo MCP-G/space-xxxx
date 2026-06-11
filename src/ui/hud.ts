@@ -84,6 +84,15 @@ export class Hud {
   }
 
   private death = el('death', `position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:#3a002255;font-family:monospace;color:#ff2e88;font-size:26px;text-shadow:0 0 18px #ff2e88;text-align:center;pointer-events:none;z-index:5;`);
+  private barTop = el('bar-top', `position:absolute;top:0;left:0;right:0;height:0;background:#000;transition:height .5s ease;z-index:4;pointer-events:none;`);
+  private barBottom = el('bar-bottom', `position:absolute;bottom:0;left:0;right:0;height:0;background:#000;transition:height .5s ease;z-index:4;pointer-events:none;`);
+
+  /** Letterbox on/off: the universal sign that something cinematic is occurring. */
+  setCinematic(on: boolean) {
+    this.barTop.style.height = on ? '11%' : '0';
+    this.barBottom.style.height = on ? '11%' : '0';
+    if (on) { this.setPrompt(null); this.setNav(null); }
+  }
 
   /** Full-screen death notice. Unmissable by design. */
   flashDeath(text: string) {

@@ -199,6 +199,8 @@ export class Ship {
     holdLight.position.set(0, 2, 0);
     this.group.add(holdLight);
 
+    this.buildCockpitGlass();
+
     this.group.userData.guideTitle = 'THE HEART OF MILD INCONVENIENCE';
     this.group.userData.guideText =
       'A freighter. Top speed: adequate. Insurance status: philosophical.';
@@ -249,6 +251,37 @@ export class Ship {
    * reads clean from within).
    */
   private externalModel: THREE.Object3D | null = null;
+  /** Canopy glass + frame, visible only from the pilot seat. */
+  readonly cockpitGlass = new THREE.Group();
+
+  private buildCockpitGlass() {
+    const glassMat = new THREE.MeshStandardMaterial({
+      color: 0x9fffe8, metalness: 0.35, roughness: 0.12,
+      transparent: true, opacity: 0.07, envMapIntensity: 0.45,
+      side: THREE.DoubleSide, depthWrite: false,
+    });
+    const frameMat = new THREE.MeshStandardMaterial({ color: 0x14141f, roughness: 0.5, metalness: 0.5 });
+
+    // the pane: a wide, raked windshield ahead of the pilot eyeline
+    const glass = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 1.9), glassMat);
+    glass.position.set(0, 2.75, -5.1);
+    glass.rotation.x = -0.28;
+    this.cockpitGlass.add(glass);
+    // frame: top + bottom rails, side pillars, center strut
+    const mkBar = (w: number, h: number, d: number, x: number, y: number, z: number, rx = -0.28) => {
+      const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), frameMat);
+      b.position.set(x, y, z);
+      b.rotation.x = rx;
+      this.cockpitGlass.add(b);
+    };
+    mkBar(3.5, 0.09, 0.09, 0, 3.68, -5.37);     // top rail
+    mkBar(3.5, 0.09, 0.09, 0, 1.83, -4.84);     // bottom rail / dash lip
+    mkBar(0.1, 1.95, 0.1, -1.72, 2.75, -5.1);   // port pillar
+    mkBar(0.1, 1.95, 0.1, 1.72, 2.75, -5.1);    // starboard pillar
+    mkBar(0.05, 1.95, 0.05, 0, 2.75, -5.1);     // center strut, slightly judgmental
+    this.cockpitGlass.visible = false;
+    this.group.add(this.cockpitGlass);
+  }
 
   useExternalModel(model: THREE.Object3D) {
     this.exterior.visible = false;
@@ -262,6 +295,7 @@ export class Ship {
   setPilotView(piloting: boolean) {
     if (this.externalModel) this.externalModel.visible = !piloting;
     else this.exterior.visible = !piloting ? true : this.exterior.visible;
+    this.cockpitGlass.visible = piloting;
   }
 
   /** Park: snap to position with yaw only (level flight attitude). */
