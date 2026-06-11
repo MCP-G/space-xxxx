@@ -26,13 +26,30 @@ export class Ship {
   private localColliders: LocalBox[] = [];
 
   constructor() {
-    const hullMat = new THREE.MeshLambertMaterial({ color: PALETTE.hull });
+    // standard materials pick up scene.environment → starlight reflections
+    const hullMat = new THREE.MeshStandardMaterial({
+      color: 0x8a8ac0, metalness: 0.7, roughness: 0.38, envMapIntensity: 0.7,
+    });
     applyVertexSnap(hullMat);
-    const darkMat = new THREE.MeshLambertMaterial({ color: PALETTE.dark });
+    const darkMat = new THREE.MeshStandardMaterial({
+      color: PALETTE.dark, metalness: 0.5, roughness: 0.5, envMapIntensity: 0.8,
+    });
     applyVertexSnap(darkMat);
-    const trimMat = new THREE.MeshLambertMaterial({ color: PALETTE.accentB });
-    trimMat.emissive = new THREE.Color(0x332a00);
+    const trimMat = new THREE.MeshStandardMaterial({
+      color: PALETTE.accentB, metalness: 0.4, roughness: 0.4,
+      emissive: new THREE.Color(0x553f00),
+    });
     applyVertexSnap(trimMat);
+    const canopyMat = new THREE.MeshStandardMaterial({
+      color: 0x60ffe8, metalness: 1.0, roughness: 0.05, envMapIntensity: 2.2,
+      emissive: new THREE.Color(0x062a26),
+    });
+    applyVertexSnap(canopyMat);
+    const stripeMat = new THREE.MeshStandardMaterial({
+      color: PALETTE.accentA, metalness: 0.6, roughness: 0.3,
+      emissive: new THREE.Color(0x55092b),
+    });
+    applyVertexSnap(stripeMat);
 
     const add = (geo: THREE.BufferGeometry, mat: THREE.Material, x: number, y: number, z: number) => {
       const m = new THREE.Mesh(geo, mat);
@@ -51,10 +68,30 @@ export class Ship {
       { w: 0.3, h: 2.4, d: 6.4, x: 2.2, y: 1.2, z: 0 },
     );
 
-    // cockpit nose: tapering wedge ahead of the hold
-    const nose = add(new THREE.ConeGeometry(2.2, 4, 4), hullMat, 0, 1.2, -5);
-    nose.rotation.x = -Math.PI / 2;
-    nose.rotation.z = Math.PI / 4; // square cross-section aligned
+    // cockpit nose: faceted, swept — stacked tapering sections + canopy
+    const noseA = add(new THREE.BoxGeometry(3.6, 2.2, 1.8), hullMat, 0, 1.15, -4.0);
+    noseA.rotation.x = 0.04;
+    const noseB = add(new THREE.BoxGeometry(2.7, 1.7, 1.6), hullMat, 0, 1.0, -5.5);
+    noseB.rotation.x = 0.1;
+    const noseC = add(new THREE.BoxGeometry(1.7, 1.0, 1.6), hullMat, 0, 0.85, -6.9);
+    noseC.rotation.x = 0.16;
+    add(new THREE.BoxGeometry(0.9, 0.5, 1.2), stripeMat, 0, 0.72, -7.9).rotation.x = 0.2;
+    // canopy: angled mirror-glass slab over the cockpit
+    const canopy = add(new THREE.BoxGeometry(1.7, 0.7, 2.0), canopyMat, 0, 2.05, -4.4);
+    canopy.rotation.x = -0.32;
+    // hull racing stripes (every disreputable freighter has them)
+    add(new THREE.BoxGeometry(0.5, 0.06, 6.4), stripeMat, -1.2, 2.73, 0);
+    add(new THREE.BoxGeometry(0.5, 0.06, 6.4), stripeMat, 1.2, 2.73, 0);
+
+    // swept wings + tail fin
+    const wingL = add(new THREE.BoxGeometry(3.4, 0.18, 2.6), hullMat, -3.6, 0.6, 1.2);
+    wingL.rotation.z = 0.1; wingL.rotation.y = -0.35;
+    const wingR = add(new THREE.BoxGeometry(3.4, 0.18, 2.6), hullMat, 3.6, 0.6, 1.2);
+    wingR.rotation.z = -0.1; wingR.rotation.y = 0.35;
+    add(new THREE.BoxGeometry(0.5, 0.1, 1.4), stripeMat, -4.9, 0.78, 1.7).rotation.y = -0.35;
+    add(new THREE.BoxGeometry(0.5, 0.1, 1.4), stripeMat, 4.9, 0.78, 1.7).rotation.y = 0.35;
+    const fin = add(new THREE.BoxGeometry(0.16, 1.8, 1.6), hullMat, 0, 3.4, 2.4);
+    fin.rotation.x = 0.25;
 
     // cockpit bulkhead with door gap, between hold and nose
     this.localColliders.push(

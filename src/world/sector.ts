@@ -75,22 +75,38 @@ export function buildSector(world: World, seed: number): Sector {
   world.scene.add(scene);
   const sector: Sector = { seed, root: scene, pois: [], asteroids: [] };
 
-  // --- starfield
-  const starGeo = new THREE.BufferGeometry();
-  const starCount = 1500;
-  const pos = new Float32Array(starCount * 3);
-  for (let i = 0; i < starCount; i++) {
-    const v = new THREE.Vector3(rnd() - 0.5, rnd() - 0.5, rnd() - 0.5).normalize().multiplyScalar(900 + rnd() * 600);
-    pos.set([v.x, v.y, v.z], i * 3);
+  // --- starfield: two layers, tinted, plentiful
+  const starTints = [0xc0c0e8, 0xffffff, 0x9fd8ff, 0xffd8b0, 0xffb0d8];
+  for (let layer = 0; layer < 2; layer++) {
+    const starGeo = new THREE.BufferGeometry();
+    const starCount = layer === 0 ? 3200 : 1400;
+    const pos = new Float32Array(starCount * 3);
+    const col = new Float32Array(starCount * 3);
+    const tint = new THREE.Color();
+    for (let i = 0; i < starCount; i++) {
+      const v = new THREE.Vector3(rnd() - 0.5, rnd() - 0.5, rnd() - 0.5)
+        .normalize().multiplyScalar(900 + rnd() * 600);
+      pos.set([v.x, v.y, v.z], i * 3);
+      tint.setHex(starTints[Math.floor(rnd() * starTints.length)]);
+      const bright = 0.7 + rnd() * 0.3;
+      col.set([tint.r * bright, tint.g * bright, tint.b * bright], i * 3);
+    }
+    starGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    starGeo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({
+      vertexColors: true, size: layer === 0 ? 2 : 3.5, sizeAttenuation: false,
+    }));
+    scene.add(stars);
   }
-  starGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xc0c0e8, size: 2, sizeAttenuation: false }));
-  scene.add(stars);
 
   // sun-ish directional light so exteriors read in space
-  const sun = new THREE.DirectionalLight(0xfff0d8, 1.6);
+  const sun = new THREE.DirectionalLight(0xfff0d8, 2.6);
   sun.position.set(0.4, 0.7, -0.6);
   scene.add(sun);
+  // and a cool fill from the opposite side so shadow faces aren't pitch black
+  const fill = new THREE.DirectionalLight(0x6080ff, 0.9);
+  fill.position.set(-0.5, -0.3, 0.6);
+  scene.add(fill);
 
   // --- asteroid cluster
   const clusterCenter = new THREE.Vector3(
@@ -195,6 +211,26 @@ export function buildSector(world: World, seed: number): Sector {
     guideTitle: 'NAVIGATION BEACON XK-9',
     guideText: 'Broadcasts "YOU ARE HERE" to a radius of 40 light-minutes. Unhelpfully, it is correct.',
   });
+
+  // --- dock beacons: tall glowing pillars so pads can be FOUND
+  for (const poi of sector.pois) {
+    if (!poi.dock) continue;
+    const pillarMat = new THREE.MeshBasicMaterial({
+      color: PALETTE.trim, transparent: true, opacity: 0.35, side: THREE.DoubleSide,
+    });
+    const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 120, 8, 1, true), pillarMat);
+    pillar.position.copy(poi.dock.shipPos).add(new THREE.Vector3(0, 60, 0));
+    pillar.name = 'dock-pillar';
+    scene.add(pillar);
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(5, 0.25, 6, 24),
+      new THREE.MeshBasicMaterial({ color: PALETTE.accentA })
+    );
+    ring.rotation.x = Math.PI / 2;
+    ring.position.copy(poi.dock.shipPos).add(new THREE.Vector3(0, 6, 0));
+    ring.name = 'dock-ring';
+    scene.add(ring);
+  }
 
   return sector;
 }

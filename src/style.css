@@ -51,10 +51,12 @@ html, body {
   position: absolute;
   bottom: 12px;
   left: 12px;
+  max-width: 55%;
   color: #7fffd4;
   font-family: monospace;
-  font-size: 12px;
+  font-size: 11px;
+  opacity: 0.85;
   text-shadow: 0 0 6px #7fffd466;
   pointer-events: none;
-  white-space: pre;
+  white-space: pre-wrap;
 }

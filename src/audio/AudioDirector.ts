@@ -142,6 +142,34 @@ export class AudioDirector {
     }
   }
 
+  /**
+   * Navigation chime. aligned=1: pleasant rising major third (you're on
+   * course, the universe approves for once). aligned=0: flat low blip.
+   * In between: increasingly in-tune.
+   */
+  navPing(aligned: number) {
+    if (!this.started) return;
+    const s = new Tone.Synth({
+      oscillator: { type: 'sine' },
+      envelope: { attack: 0.01, decay: 0.22, sustain: 0, release: 0.1 },
+    }).connect(this.master);
+    s.volume.value = -16;
+    if (aligned > 0.7) {
+      s.triggerAttackRelease('A5', '16n');
+      const s2 = new Tone.Synth({
+        oscillator: { type: 'sine' },
+        envelope: { attack: 0.01, decay: 0.3, sustain: 0, release: 0.1 },
+      }).connect(this.master);
+      s2.volume.value = -18;
+      setTimeout(() => { s2.triggerAttackRelease('C#6', '16n'); setTimeout(() => s2.dispose(), 600); }, 90);
+    } else {
+      // detune toward sour as you drift off course
+      const freq = 220 + aligned * 200;
+      s.triggerAttackRelease(freq, '32n');
+    }
+    setTimeout(() => s.dispose(), 700);
+  }
+
   /** Blaster discharge: descending zap. */
   zap() {
     if (!this.started) return;

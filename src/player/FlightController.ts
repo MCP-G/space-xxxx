@@ -69,9 +69,10 @@ export class FlightController {
 
     ship.position.addScaledVector(ship.velocity, dt);
 
-    // camera: cockpit view from the seat, slight speed shake
+    // camera: raised cockpit view — eyeline clears the nose so you see
+    // over your own dashboard instead of into it
     const seat = ship.seatWorld();
-    camera.position.copy(seat);
+    camera.position.copy(seat).addScaledVector(up, 1.45).addScaledVector(forward, 1.3);
     camera.quaternion.copy(ship.quaternion);
     const shake = Math.min(this.speed / MAX_SPEED, 1) * 0.015;
     camera.position.x += (Math.random() - 0.5) * shake;

@@ -43,6 +43,34 @@ export class Hud {
   private market = el('market', `${MONO}position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:460px;font-size:13px;line-height:1.7;border:1px solid #7fffd455;padding:14px;background:#0a0a12ee;display:none;`);
   private status = el('status', `${MONO}position:absolute;bottom:12px;right:18px;font-size:12px;text-align:right;pointer-events:none;white-space:pre;`);
 
+  private nav = el('nav', `${MONO}position:absolute;top:50%;left:50%;width:0;height:0;pointer-events:none;display:none;`);
+  private navArrow = (() => {
+    const a = document.createElement('div');
+    a.style.cssText = `${MONO}position:absolute;left:-12px;top:-90px;font-size:24px;transform-origin:12px 90px;`;
+    a.textContent = '▲';
+    this.nav.appendChild(a);
+    const label = document.createElement('div');
+    label.id = 'nav-label';
+    label.style.cssText = `${MONO}position:absolute;left:-120px;top:-130px;width:240px;text-align:center;font-size:12px;`;
+    this.nav.appendChild(label);
+    return a;
+  })();
+
+  /**
+   * Heading indicator: arrow rotates around screen center to point at the
+   * target (angle in radians, 0 = dead ahead/up). null hides.
+   */
+  setNav(angle: number | null, label = '') {
+    this.nav.style.display = angle === null ? 'none' : 'block';
+    if (angle === null) return;
+    this.navArrow.style.transform = `rotate(${angle}rad)`;
+    const l = this.nav.querySelector('#nav-label') as HTMLDivElement;
+    l.textContent = label;
+    // arrow turns mint when roughly on course, pink otherwise
+    const on = Math.abs(((angle + Math.PI) % (2 * Math.PI)) - Math.PI) < 0.35;
+    this.navArrow.style.color = on ? '#7fffd4' : '#ff2e88';
+  }
+
   /** Market panel. rows pre-formatted; null hides. */
   setMarket(html: string | null) {
     this.market.style.display = html ? 'block' : 'none';

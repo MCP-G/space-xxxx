@@ -58,8 +58,8 @@ const POST_FRAG = /* glsl */ `
       col.b = texture2D(tScene, uv - vec2(off, 0.0)).b;
     }
 
-    // the scene target holds linear values; encode to sRGB before quantizing
-    col = pow(col, vec3(1.0 / 2.2));
+    // the scene target holds linear values; lift exposure, encode to sRGB
+    col = pow(col * 1.25, vec3(1.0 / 2.2));
 
     // ordered dither, then quantize each channel to limited levels
     vec2 pix = floor(uv * uResolution);

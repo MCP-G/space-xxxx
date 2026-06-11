@@ -18,7 +18,7 @@ const boot = document.querySelector<HTMLDivElement>('#boot')!;
 const legacyHud = document.querySelector<HTMLDivElement>('#hud')!;
 legacyHud.textContent =
   'WASD move · SHIFT sprint/boost · E interact\n' +
-  'FLIGHT: mouse steer · W/S thrust · A/D strafe · R/F lift · SPACE brake\n' +
+  'FLIGHT: mouse steer · W/S thrust · A/D strafe · R/F lift · SPACE brake · T nav target\n' +
   'PORT IMPROBABLE — Deck 7 (allegedly)';
 
 const pipeline = new PixelPipeline(canvas);
@@ -31,6 +31,16 @@ const interactions = new InteractionRegistry();
 
 const player = new PlayerState();
 player.load();
+
+// one-shot environment capture from open space: stars + sun reflect off
+// MeshStandardMaterial hulls (the ship, mainly)
+{
+  const cubeRT = new THREE.WebGLCubeRenderTarget(128);
+  const cubeCam = new THREE.CubeCamera(1, 2000, cubeRT);
+  cubeCam.position.set(0, 40, -80);
+  cubeCam.update(pipeline.renderer, world.scene);
+  world.scene.environment = cubeRT.texture;
+}
 
 // --- ship, parked in the hangar, nose at the field
 const ship = new Ship();
@@ -347,6 +357,44 @@ function dockAt(spot: DockSpot) {
   audio.glitchBurst();
 }
 
+// --- navigation: T cycles docking targets; chevron + chime guide you in
+let navIndex = 0;
+let navPingTimer = 0;
+document.addEventListener('keydown', (e) => {
+  if (e.code !== 'KeyT' || mode !== 'fly') return;
+  navIndex = (navIndex + 1) % dockSpots.length;
+  hud.say(`NAV TARGET: ${dockSpots[navIndex].name}`, 2);
+});
+
+function updateNav(dt: number) {
+  const spot = dockSpots[navIndex % dockSpots.length];
+  if (!spot) { hud.setNav(null); return; }
+  const toTarget = spot.shipPos.clone().sub(ship.position);
+  const dist = toTarget.length();
+  toTarget.normalize();
+
+  // angle of target around the screen center, in camera space
+  const camSpace = toTarget.clone().applyQuaternion(ship.quaternion.clone().invert());
+  const angle = Math.atan2(camSpace.x, camSpace.y); // 0 = up when target ahead-up
+  const facing = new THREE.Vector3(0, 0, -1).applyQuaternion(ship.quaternion);
+  const alignment = facing.dot(toTarget); // 1 = nose-on
+
+  // closing rate: are we actually getting closer?
+  const closing = ship.velocity.dot(toTarget);
+  hud.setNav(
+    camSpace.z < 0 && Math.abs(angle) < 0.6 ? 0 : angle,
+    `${spot.name} ${dist.toFixed(0)}m ${closing > 1 ? '▼ closing' : closing < -1 ? '▲ receding' : ''}`
+  );
+
+  // chime: faster and sweeter as you line up and burn toward it
+  navPingTimer -= dt;
+  if (navPingTimer <= 0 && flight.speed > 2) {
+    const a = Math.max(0, alignment);
+    audio.navPing(a);
+    navPingTimer = 1.6 - a; // up to ~1.6s apart, ~0.6s when nose-on
+  }
+}
+
 // --- E key
 document.addEventListener('keydown', (e) => {
   if (e.code !== 'KeyE') return;
@@ -370,6 +418,12 @@ function updateGuide(dt: number, camera: THREE.PerspectiveCamera) {
   let found: { title: string; text: string } | null = null;
   for (const h of hits) {
     let o: THREE.Object3D | null = h.object;
+    // while piloting, your own ship is not news
+    if (mode === 'fly') {
+      let inShip = false;
+      for (let p: THREE.Object3D | null = o; p; p = p.parent) if (p === ship.group) inShip = true;
+      if (inShip) continue;
+    }
     while (o) {
       if (o.userData.guideTitle) {
         found = { title: o.userData.guideTitle, text: o.userData.guideText };
@@ -478,6 +532,15 @@ function frame(now: number) {
   last = now;
   const t = now / 1000;
 
+  // NPCs idle: a faint bob and sway, the universal posture of waiting
+  for (let i = 0; i < world.guideMeshes.length; i++) {
+    const m = world.guideMeshes[i];
+    if (m.userData.npc) {
+      m.position.y = Math.sin(t * 1.4 + i * 2.4) * 0.03;
+      m.rotation.y += Math.sin(t * 0.4 + i) * 0.0006;
+    }
+  }
+
   // blink the decorative lights
   const blinker = world.scene.getObjectByName('shell-blinker');
   if (blinker) blinker.visible = Math.sin(t * 4) > 0;
@@ -498,6 +561,7 @@ function frame(now: number) {
     const it = interactions.nearest(walk.camera.position);
     hud.setPrompt(it ? it.label : null);
     hud.setFlight(null);
+    hud.setNav(null);
   } else {
     flight.update(dt, walk.camera);
     flightCollisions();
@@ -513,6 +577,8 @@ function frame(now: number) {
     const dHome = ship.position.distanceTo(new THREE.Vector3(0, 0, -10));
     if (dHome < nearestD) nearestName = `PORT IMPROBABLE ${dHome.toFixed(0)}m`;
     hud.setFlight(flight.speed, nearestName);
+
+    updateNav(dt);
 
     const spot = nearestDock();
     hud.setPrompt(

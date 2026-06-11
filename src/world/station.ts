@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { applyVertexSnap } from '../render/PixelPipeline';
+import { buildNpc } from './npc';
 
 export interface ColliderBox {
   min: THREE.Vector3;
@@ -132,6 +133,37 @@ export function buildStation(): World {
     guide: ['MUNICIPAL TERMINAL', 'Property of the Ministry of Immutable Affairs. Filing backlog: 14,000 years.'],
   });
   box(world, 0.6, 0.5, 0.05, -3.5, 1.4, 17.28, PALETTE.trim, { collide: false, emissive: true });
+
+  // --- the locals
+  const engineer = buildNpc({
+    skin: 0xd9a066, shirt: 0xff8c2e, trousers: 0x2a2a3e,
+    guideTitle: 'THE ENGINEER',
+    guideText: 'Fixes engines for scrap. Fixes everything else for reasons she declines to file.',
+  });
+  engineer.position.set(6.4, 0, -3.2);
+  engineer.rotation.y = -Math.PI / 2.6; // leaning toward her crates
+  scene.add(engineer);
+  world.guideMeshes.push(engineer as unknown as THREE.Mesh);
+
+  const bartender = buildNpc({
+    skin: 0x8fd98f, shirt: 0x3d3d5c, trousers: 0x14141f,
+    guideTitle: 'THE BARTENDER',
+    guideText: 'Three hearts, one drink recipe. Pours with the enthusiasm of a tide table.',
+  });
+  bartender.position.set(0.8, 0, 17.4);
+  bartender.rotation.y = Math.PI; // facing the bar, and therefore you
+  scene.add(bartender);
+  world.guideMeshes.push(bartender as unknown as THREE.Mesh);
+
+  const lounger = buildNpc({
+    skin: 0xc88fd9, shirt: 0x7fffd4, trousers: 0x3a3148,
+    guideTitle: 'UNCLAIMED PASSENGER',
+    guideText: 'Has been waiting for a connecting flight since the timetable was abolished.',
+  });
+  lounger.position.set(-4.2, 0, 13);
+  lounger.rotation.y = Math.PI / 3;
+  scene.add(lounger);
+  world.guideMeshes.push(lounger as unknown as THREE.Mesh);
 
   // clutter crates
   box(world, 1.2, 1.2, 1.2, -5.5, 0.6, -12, PALETTE.accentA, {
