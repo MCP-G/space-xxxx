@@ -3,7 +3,26 @@
 *Last updated: June 2026 (post-R2 + decay pass). Everything below is
 implemented, committed, and verified in-browser unless marked otherwise.*
 
-## Latest session: full playtest + cyber decay
+## Latest session: canopy, windows, docking cinematics
+
+- **Cockpit canopy** (`Ship.buildCockpitGlass`): raked glass pane + frame
+  rails/pillars/center strut, visible only in pilot view (toggled by
+  `setPilotView`). Glass tuned subtle (opacity 0.07) — earlier values
+  mirror-balled the whole view.
+- **`lib/world/Windows.ts`**: collider-driven window system (same pattern
+  as Decay). Framed star-view viewports (pooled canvas textures: stars +
+  nebula wash + glass sheen) on station + all POI walls. Guide text admits
+  views are simulated for morale.
+- **Docking cinematics** (`src/game/cinematic.ts` + hud.setCinematic
+  letterbox + `AudioDirector.stinger`): dock = camera cranes down around
+  the ship as it glides/rotates onto the pad; undock = ship lifts while
+  the camera sweeps up. Music ducks via a musicGain bus; stinger in A
+  (score's home key): rising arp/major swell/noise riser for undock,
+  descending resolve + add9 for dock, ~3.5s, groove fades back.
+  Player is invulnerable during shots. **Tests/respawn use
+  `dockAt(spot, false)` / `enterFlight(false)`** to skip cinematics.
+
+## Previous session: full playtest + cyber decay
 
 **Playtest** (scripted via `window.__game`, fresh save): every flow passes —
 economy caps/floors, all five docks, salvage, mining, kiosk market, ship's
