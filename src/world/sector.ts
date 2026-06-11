@@ -135,10 +135,11 @@ export function buildSector(world: World, seed: number): Sector {
     starGeo.setAttribute('color', new THREE.BufferAttribute(col, 3));
     const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({
       vertexColors: true,
-      size: layer === 0 ? 1 : layer === 1 ? 2.5 : 4,
+      // pinpricks, not confetti: sub-2px even on the bright layer
+      size: layer === 0 ? 0.5 : layer === 1 ? 0.9 : 1.6,
       sizeAttenuation: false,
-      opacity: layer === 0 ? 0.6 : 1,
-      transparent: layer === 0,
+      opacity: layer === 0 ? 0.45 : layer === 1 ? 0.8 : 1,
+      transparent: layer < 2,
       fog: false, // stars sit beyond the fog's far plane — never fog them out
     }));
     scene.add(stars);
