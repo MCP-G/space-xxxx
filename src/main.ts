@@ -1,8 +1,8 @@
 import './style.css';
 import * as THREE from 'three';
 import { PixelPipeline } from './render/PixelPipeline';
-import { buildStation, TERMINAL_LINES, PALETTE } from './world/station';
-import { buildSector, type Poi } from './world/sector';
+import { buildStation, TERMINAL_LINES } from './world/station';
+import { buildSector, DERELICT_LOGS, type Poi } from './world/sector';
 import { WalkController } from './player/WalkController';
 import { FlightController } from './player/FlightController';
 import { Ship } from './ship/Ship';
@@ -184,7 +184,8 @@ const combat = new CombatSystem(world.scene, {
       activePoi = null;
       ship.park(HANGAR_PARK.x, HANGAR_PARK.y, HANGAR_PARK.z, HANGAR_PARK.yaw);
       enterWalk(0, 0, -5.4);
-      hud.say('YOU DIED. THE MINISTRY HAS RESPAWNED YOU AND INVOICED THE EXPERIENCE.', 6);
+      hud.flashDeath('YOU DIED.\nRESPAWNED AT PORT IMPROBABLE.\nTHE EXPERIENCE HAS BEEN INVOICED.');
+      hud.say('TIP: THE DRONES AT THE DERELICT ARE NOT DECORATIVE. SHOOT BACK (CLICK).', 8);
     } else {
       hud.say(`HULL/PERSON INTEGRITY: ${player.hull}%`, 1.5);
     }
@@ -210,29 +211,34 @@ const salvageInteract = interactions.add({
   },
 });
 
+let logIdx = 0;
+const logInteract = interactions.add({
+  position: new THREE.Vector3(),
+  radius: 3,
+  label: "E — READ SHIP'S LOG",
+  enabled: false,
+  onUse: () => {
+    hud.say(DERELICT_LOGS[logIdx % DERELICT_LOGS.length], 6);
+    logIdx++;
+    pipeline.triggerGlitch(0.25);
+  },
+});
+
 function populateSector() {
   combat.populate(sector);
-  // scrap crates on the derelict pad
-  for (const s of salvageItems) world.scene.remove(s.mesh);
-  salvageItems = [];
-  const derelict = sector.pois.find((p) => p.kind === 'derelict');
-  if (derelict?.dock) {
-    const glow = new THREE.MeshBasicMaterial({ color: PALETTE.trim });
-    for (let i = 0; i < 3; i++) {
-      const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 0.6), glow);
-      mesh.position.copy(derelict.dock.standPos).add(new THREE.Vector3((i - 1) * 2.5, 0.3, -3));
-      mesh.userData.guideTitle = 'ABANDONED CARGO';
-      mesh.userData.guideText = 'Legally salvage after 30 years. It has been 31. Suspiciously precise.';
-      world.scene.add(mesh);
-      salvageItems.push({ mesh, taken: false });
-    }
-  }
+  // salvage/ore comes pre-placed by the generator; meshes live in sector.root
+  salvageItems = sector.salvage.map((s) => ({ mesh: s.mesh, taken: false }));
   // kiosk market follows the beacon
   const beacon = sector.pois.find((p) => p.kind === 'beacon');
   if (beacon?.dock) {
     kioskInteract.position.copy(beacon.dock.standPos);
     kioskInteract.enabled = true;
   } else kioskInteract.enabled = false;
+  // ship's log follows the derelict
+  if (sector.logPos) {
+    logInteract.position.copy(sector.logPos);
+    logInteract.enabled = true;
+  } else logInteract.enabled = false;
 }
 populateSector();
 
@@ -541,6 +547,10 @@ function frame(now: number) {
     }
   }
 
+  // derelict ceiling light flickers like it's narrating
+  const flick = world.scene.getObjectByName('derelict-flicker') as THREE.PointLight | undefined;
+  if (flick) flick.intensity = Math.random() > 0.12 ? 9 : 1.5;
+
   // blink the decorative lights
   const blinker = world.scene.getObjectByName('shell-blinker');
   if (blinker) blinker.visible = Math.sin(t * 4) > 0;
@@ -592,10 +602,19 @@ function frame(now: number) {
     audio.setThrust(flight.thrusting ? 0.4 + (flight.speed / 90) * 0.6 : (flight.speed / 90) * 0.3);
   }
 
-  // combat + danger music
+  // combat + danger music; a roof overhead means bolts can't reach you
   const target = mode === 'walk' ? walk.camera.position : ship.position;
   const targetRadius = mode === 'walk' ? 1.2 : 3.5;
-  combat.update(dt, t, target, targetRadius);
+  let roofed = false;
+  if (mode === 'walk' && activePoi?.dock) {
+    const feet = walk.position;
+    roofed = activePoi.dock.colliders.some((c) =>
+      c.min.y > feet.y + 1.7 && c.min.y < feet.y + 6 &&
+      feet.x > c.min.x && feet.x < c.max.x &&
+      feet.z > c.min.z && feet.z < c.max.z
+    );
+  }
+  combat.update(dt, t, target, targetRadius, roofed);
   audio.setMode(combat.inDanger(target) ? 'danger' : mode === 'fly' ? 'flight' : 'station');
 
   // salvage prompt proximity

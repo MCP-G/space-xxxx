@@ -104,7 +104,8 @@ export class CombatSystem {
     return true;
   }
 
-  update(dt: number, t: number, target: THREE.Vector3, targetRadius: number) {
+  /** shielded: target is under cover (indoors) — bolts can't reach them. */
+  update(dt: number, t: number, target: THREE.Vector3, targetRadius: number, shielded = false) {
     this.cooldown = Math.max(0, this.cooldown - dt);
 
     for (const d of this.drones) {
@@ -117,7 +118,7 @@ export class CombatSystem {
       d.mesh.rotation.y = t * 2;
 
       const distToTarget = d.mesh.position.distanceTo(target);
-      if (distToTarget < DRONE_RANGE) {
+      if (distToTarget < DRONE_RANGE && !shielded) {
         d.fireTimer -= dt;
         if (d.fireTimer <= 0) {
           d.fireTimer = FIRE_INTERVAL;
@@ -134,7 +135,7 @@ export class CombatSystem {
       const b = this.bolts[i];
       b.life -= dt;
       b.mesh.position.addScaledVector(b.velocity, dt);
-      if (b.mesh.position.distanceTo(target) < targetRadius) {
+      if (!shielded && b.mesh.position.distanceTo(target) < targetRadius) {
         this.events.onPlayerHit(12);
         b.life = 0;
       }

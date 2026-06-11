@@ -83,6 +83,15 @@ export class Hud {
     this.status.textContent = text;
   }
 
+  private death = el('death', `position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:#3a002255;font-family:monospace;color:#ff2e88;font-size:26px;text-shadow:0 0 18px #ff2e88;text-align:center;pointer-events:none;z-index:5;`);
+
+  /** Full-screen death notice. Unmissable by design. */
+  flashDeath(text: string) {
+    this.death.textContent = text;
+    this.death.style.display = 'flex';
+    setTimeout(() => { this.death.style.display = 'none'; }, 3500);
+  }
+
   /** Transient yellow line — terminal chatter, dock confirmations. */
   say(text: string, seconds = 4) {
     this.toast.textContent = text;

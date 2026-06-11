@@ -137,6 +137,7 @@ export function buildStation(): World {
   // --- the locals
   const engineer = buildNpc({
     skin: 0xd9a066, shirt: 0xff8c2e, trousers: 0x2a2a3e,
+    hat: 0x2a2a3e, prop: 'wrench',
     guideTitle: 'THE ENGINEER',
     guideText: 'Fixes engines for scrap. Fixes everything else for reasons she declines to file.',
   });
@@ -147,6 +148,7 @@ export function buildStation(): World {
 
   const bartender = buildNpc({
     skin: 0x8fd98f, shirt: 0x3d3d5c, trousers: 0x14141f,
+    hair: 0x14141f, prop: 'mug',
     guideTitle: 'THE BARTENDER',
     guideText: 'Three hearts, one drink recipe. Pours with the enthusiasm of a tide table.',
   });
@@ -157,6 +159,7 @@ export function buildStation(): World {
 
   const lounger = buildNpc({
     skin: 0xc88fd9, shirt: 0x7fffd4, trousers: 0x3a3148,
+    hair: 0x6a4a8a, prop: 'datapad',
     guideTitle: 'UNCLAIMED PASSENGER',
     guideText: 'Has been waiting for a connecting flight since the timetable was abolished.',
   });

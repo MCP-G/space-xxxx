@@ -123,6 +123,66 @@ export class Ship {
     add(new THREE.BoxGeometry(0.7, 0.7, 0.1), glowMat, -2.6, 1.2, 3.62);
     add(new THREE.BoxGeometry(0.7, 0.7, 0.1), glowMat, 2.6, 1.2, 3.62);
 
+    // --- greebles: the difference between "shape" and "machine"
+    // landing skids
+    for (const sx of [-1.9, 1.9]) {
+      add(new THREE.BoxGeometry(0.22, 0.25, 0.22), darkMat, sx, -0.3, -2.2);
+      add(new THREE.BoxGeometry(0.45, 0.1, 1.9), darkMat, sx, -0.4, -2.2);
+      add(new THREE.BoxGeometry(0.22, 0.25, 0.22), darkMat, sx, -0.3, 1.8);
+      add(new THREE.BoxGeometry(0.45, 0.1, 1.9), darkMat, sx, -0.4, 1.8);
+    }
+    // antennae cluster on the roof
+    add(new THREE.CylinderGeometry(0.02, 0.02, 1.6, 4), darkMat, -0.8, 3.4, -1.6);
+    add(new THREE.CylinderGeometry(0.015, 0.015, 1.1, 4), darkMat, -0.95, 3.2, -1.4);
+    add(new THREE.SphereGeometry(0.07, 6, 5), stripeMat, -0.8, 4.2, -1.6);
+    // sensor dish, slightly off true because of course it is
+    const dish = add(new THREE.CylinderGeometry(0.35, 0.1, 0.18, 10), hullMat, 0.9, 3.0, -1.2);
+    dish.rotation.z = -0.4; dish.rotation.x = 0.2;
+    // hull panel lines: thin dark strips along the sides
+    for (const sx of [-2.21, 2.21]) {
+      add(new THREE.BoxGeometry(0.05, 0.06, 5.6), darkMat, sx * 1.01, 1.9, 0);
+      add(new THREE.BoxGeometry(0.05, 0.06, 5.6), darkMat, sx * 1.01, 0.5, 0);
+      add(new THREE.BoxGeometry(0.05, 0.8, 0.06), darkMat, sx * 1.01, 1.2, -1.4);
+      add(new THREE.BoxGeometry(0.05, 0.8, 0.06), darkMat, sx * 1.01, 1.2, 1.2);
+    }
+    // vents behind the cockpit
+    for (let i = 0; i < 4; i++) {
+      add(new THREE.BoxGeometry(0.5, 0.05, 0.16), darkMat, -1.1 + i * 0.7, 2.72, -2.6);
+    }
+    // engine pod detail rings + intake cones
+    for (const sx of [-2.6, 2.6]) {
+      add(new THREE.TorusGeometry(0.66, 0.05, 6, 12), darkMat, sx, 1.2, 2.0).rotation.x = 0;
+      add(new THREE.TorusGeometry(0.7, 0.05, 6, 12), darkMat, sx, 1.2, 3.0).rotation.x = 0;
+      const cone = add(new THREE.ConeGeometry(0.5, 0.7, 10), darkMat, sx, 1.2, 1.0);
+      cone.rotation.x = -Math.PI / 2;
+    }
+    // running lights: red port, green starboard (tradition survives everything)
+    add(new THREE.SphereGeometry(0.08, 6, 5), new THREE.MeshBasicMaterial({ color: 0xff3030 }), -5.0, 0.7, 1.7);
+    add(new THREE.SphereGeometry(0.08, 6, 5), new THREE.MeshBasicMaterial({ color: 0x30ff60 }), 5.0, 0.7, 1.7);
+
+    // cockpit dashboard: button rows and a tiny screen that worries
+    const dashTop = add(new THREE.BoxGeometry(1.7, 0.1, 0.7), darkMat, 0, 1.28, -3.45);
+    dashTop.rotation.x = 0.25;
+    for (let i = 0; i < 6; i++) {
+      const lit = i % 2 === 0;
+      add(
+        new THREE.BoxGeometry(0.1, 0.05, 0.1),
+        new THREE.MeshBasicMaterial({ color: lit ? 0x7fffd4 : 0xff2e88 }),
+        -0.6 + i * 0.24, 1.36, -3.42
+      );
+    }
+    const dashScreen = add(new THREE.BoxGeometry(0.5, 0.3, 0.04), new THREE.MeshBasicMaterial({ color: 0x103830 }), 0, 1.55, -3.62);
+    dashScreen.rotation.x = -0.2;
+    // a steering yoke, vestigial but reassuring
+    add(new THREE.TorusGeometry(0.18, 0.025, 6, 12), darkMat, 0, 1.15, -3.15).rotation.x = 0.4;
+
+    // hold shelving + strapped cargo
+    add(new THREE.BoxGeometry(0.16, 1.8, 2.6), darkMat, -2.05, 0.9, 1.4);
+    add(new THREE.BoxGeometry(0.7, 0.08, 2.4), darkMat, -1.8, 1.0, 1.4);
+    add(new THREE.BoxGeometry(0.7, 0.08, 2.4), darkMat, -1.8, 1.7, 1.4);
+    add(new THREE.BoxGeometry(0.5, 0.5, 0.6), trimMat, -1.8, 1.32, 0.7);
+    add(new THREE.BoxGeometry(0.5, 0.4, 0.5), stripeMat, -1.8, 1.27, 1.9);
+
     // interior light so the hold isn't a cave
     const holdLight = new THREE.PointLight(PALETTE.accentB, 6, 8, 1.6);
     holdLight.position.set(0, 2, 0);

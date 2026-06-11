@@ -3,7 +3,7 @@ import * as THREE from 'three';
 // Renders the scene into a low-res target, then upscales through a post
 // shader that quantizes to a palette with ordered dithering, plus scanline
 // and glitch passes. The internal resolution is the look — don't raise it.
-const INTERNAL_HEIGHT = 270;
+const INTERNAL_HEIGHT = 540;
 
 const POST_VERT = /* glsl */ `
   varying vec2 vUv;
