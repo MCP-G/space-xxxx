@@ -93,8 +93,10 @@ export class PixelPipeline {
 
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
-    this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    // ?shadows=0 for software-GL environments (CI, headless previews)
+    const wantShadows = new URLSearchParams(location.search).get('shadows') !== '0';
+    this.renderer.shadowMap.enabled = wantShadows;
+    this.renderer.shadowMap.type = THREE.PCFShadowMap;
 
     this.target = new THREE.WebGLRenderTarget(16, 16, {
       minFilter: THREE.NearestFilter,

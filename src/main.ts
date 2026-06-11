@@ -6,6 +6,7 @@ import { loadModel, activeMixers } from './render/models';
 import { registry } from './lib/registry/AssetRegistry';
 import './lib/registry/prefabs';
 import { Character } from './lib/actors/Character';
+import { DecaySystem } from './lib/world/Decay';
 import { buildSector, DERELICT_LOGS, type Poi } from './world/sector';
 import { WalkController } from './player/WalkController';
 import { FlightController } from './player/FlightController';
@@ -36,6 +37,12 @@ const interactions = new InteractionRegistry();
 
 const player = new PlayerState();
 player.load();
+
+// cyber decay: the station has been lived in, vandalized, and under-funded
+new DecaySystem(world.scene, 777).apply(world.colliders, {
+  wallDensity: 1.6,
+  floorDensity: 3,
+});
 
 // --- downloaded CC0 models (Quaternius): NPCs, player hull, hangar prop.
 // All async; the world simply gains inhabitants as they arrive.
@@ -679,12 +686,24 @@ Object.assign(window as any, {
     sector: () => sector,
     dockSpots: () => dockSpots,
     mode: () => mode,
+    /** Advance the simulation synchronously (testing in throttled tabs). */
+    step: (ms = 100) => {
+      let t = last;
+      const steps = Math.max(1, Math.ceil(ms / 50));
+      for (let i = 0; i < steps; i++) {
+        t += 50;
+        frame(t);
+      }
+    },
   },
 });
 
-// --- frame loop
+// --- frame loop (rAF, with a heartbeat fallback so simulation survives
+// hidden/occluded tabs — browsers park rAF there and the game would freeze)
 let last = performance.now();
+let lastRun = 0;
 function frame(now: number) {
+  lastRun = now;
   const dt = Math.min((now - last) / 1000, 0.05);
   last = now;
   const t = now / 1000;
@@ -802,6 +821,13 @@ function frame(now: number) {
   );
 
   pipeline.render(world.scene, walk.camera, dt, t);
-  requestAnimationFrame(frame);
 }
-requestAnimationFrame(frame);
+function loop(now: number) {
+  frame(now);
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+setInterval(() => {
+  const now = performance.now();
+  if (now - lastRun > 250) frame(now);
+}, 125);
