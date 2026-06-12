@@ -154,7 +154,7 @@ export function buildSector(world: World, seed: number): Sector {
   const sun = new THREE.DirectionalLight(0xfff0d8, 2.6);
   sun.position.set(40, 70, -60);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(2048, 2048);
+  sun.shadow.mapSize.set(1024, 1024);
   sun.shadow.camera.near = 10;
   sun.shadow.camera.far = 300;
   const sc = sun.shadow.camera;

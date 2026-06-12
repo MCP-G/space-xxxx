@@ -3,31 +3,49 @@ import { sfc32 } from '../../world/sector';
 import type { ColliderBox } from '../../world/station';
 
 // WINDOWS — the companion to Decay. Feed it collider walls; it bolts on
-// framed viewports with a star-field "view" behind tinted glass. Whether
-// any given window faces actual space is between the station and its
-// conscience: the Guide is honest about this.
+// framed viewports with a star-field "view". Whether any given window
+// faces actual space is between the station and its conscience: the Guide
+// is honest about this. Frame, glass sheen, and stars are all baked into
+// one texture → one mesh, one draw call per window.
 const STAR_TINTS = ['#c0c0e8', '#ffffff', '#9fd8ff', '#ffd8b0'];
 
-function makeSpaceViewTexture(rnd: () => number): THREE.CanvasTexture {
+function makeWindowTexture(rnd: () => number): THREE.CanvasTexture {
+  const W = 256, H = 160, F = 12; // frame thickness in px
   const c = document.createElement('canvas');
-  c.width = 256; c.height = 160;
+  c.width = W; c.height = H;
   const ctx = c.getContext('2d')!;
+  // the void
   ctx.fillStyle = '#04040c';
-  ctx.fillRect(0, 0, 256, 160);
+  ctx.fillRect(0, 0, W, H);
   // a wash of nebula, for morale
-  const grad = ctx.createRadialGradient(60 + rnd() * 140, 40 + rnd() * 80, 5, 128, 80, 160);
+  const grad = ctx.createRadialGradient(60 + rnd() * 140, 40 + rnd() * 80, 5, W / 2, H / 2, 160);
   const hue = Math.floor(rnd() * 3);
   grad.addColorStop(0, ['rgba(255,46,136,0.16)', 'rgba(127,255,212,0.13)', 'rgba(106,74,138,0.2)'][hue]);
   grad.addColorStop(1, 'rgba(0,0,0,0)');
   ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, 256, 160);
+  ctx.fillRect(0, 0, W, H);
+  // stars
   for (let i = 0; i < 110; i++) {
     ctx.fillStyle = STAR_TINTS[Math.floor(rnd() * STAR_TINTS.length)];
     ctx.globalAlpha = 0.4 + rnd() * 0.6;
     const s = rnd() > 0.92 ? 2 : 1;
-    ctx.fillRect(rnd() * 256, rnd() * 160, s, s);
+    ctx.fillRect(F + rnd() * (W - F * 2), F + rnd() * (H - F * 2), s, s);
   }
   ctx.globalAlpha = 1;
+  // glass sheen: one confident diagonal
+  const sheen = ctx.createLinearGradient(0, H, W, 0);
+  sheen.addColorStop(0.35, 'rgba(191,255,236,0)');
+  sheen.addColorStop(0.5, 'rgba(191,255,236,0.10)');
+  sheen.addColorStop(0.65, 'rgba(191,255,236,0)');
+  ctx.fillStyle = sheen;
+  ctx.fillRect(0, 0, W, H);
+  // frame
+  ctx.strokeStyle = '#1a1a28';
+  ctx.lineWidth = F;
+  ctx.strokeRect(F / 2, F / 2, W - F, H - F);
+  ctx.strokeStyle = '#34344a';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(F + 1, F + 1, W - F * 2 - 2, H - F * 2 - 2);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
@@ -40,12 +58,7 @@ export interface WindowOpts {
 
 export class WindowSystem {
   private rnd: () => number;
-  private viewPool: THREE.CanvasTexture[] = [];
-  private frameMat = new THREE.MeshStandardMaterial({ color: 0x1a1a28, roughness: 0.5, metalness: 0.6 });
-  private glassMat = new THREE.MeshStandardMaterial({
-    color: 0xbfffec, metalness: 0.9, roughness: 0.08,
-    transparent: true, opacity: 0.16, depthWrite: false,
-  });
+  private viewPool: THREE.MeshBasicMaterial[] = [];
   readonly root = new THREE.Group();
 
   constructor(parent: THREE.Object3D, seed: number) {
@@ -78,7 +91,7 @@ export class WindowSystem {
         const u = 0.18 + this.rnd() * 0.64;
         const y = c.min.y + sy * (0.45 + this.rnd() * 0.2);
         const win = this.window(w, h);
-        const eps = 0.04 * side;
+        const eps = 0.06 * side;
         if (normalAxis === 'x') {
           win.position.set(side > 0 ? c.max.x + eps : c.min.x + eps, y, c.min.z + along * u);
           win.rotation.y = side > 0 ? Math.PI / 2 : -Math.PI / 2;
@@ -91,33 +104,17 @@ export class WindowSystem {
     }
   }
 
-  private window(w: number, h: number): THREE.Group {
-    const g = new THREE.Group();
-    if (this.viewPool.length < 8) this.viewPool.push(makeSpaceViewTexture(this.rnd));
-    const view = this.viewPool[Math.floor(this.rnd() * this.viewPool.length)];
-
-    const space = new THREE.Mesh(
-      new THREE.PlaneGeometry(w, h),
-      new THREE.MeshBasicMaterial({ map: view })
-    );
-    g.add(space);
-    const glass = new THREE.Mesh(new THREE.PlaneGeometry(w, h), this.glassMat);
-    glass.position.z = 0.015;
-    g.add(glass);
-    // frame: four bars
-    const t = 0.07;
-    for (const [bw, bh, x, y] of [
-      [w + t * 2, t, 0, h / 2 + t / 2],
-      [w + t * 2, t, 0, -h / 2 - t / 2],
-      [t, h, -w / 2 - t / 2, 0],
-      [t, h, w / 2 + t / 2, 0],
-    ] as const) {
-      const bar = new THREE.Mesh(new THREE.BoxGeometry(bw, bh, 0.08), this.frameMat);
-      bar.position.set(x, y, 0.01);
-      g.add(bar);
+  private window(w: number, h: number): THREE.Mesh {
+    if (this.viewPool.length < 8) {
+      this.viewPool.push(new THREE.MeshBasicMaterial({
+        map: makeWindowTexture(this.rnd),
+        polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
+      }));
     }
-    g.userData.guideTitle = 'WINDOW';
-    g.userData.guideText = 'View simulated for morale purposes. The void appreciates your interest.';
-    return g;
+    const mat = this.viewPool[Math.floor(this.rnd() * this.viewPool.length)];
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
+    mesh.userData.guideTitle = 'WINDOW';
+    mesh.userData.guideText = 'View simulated for morale purposes. The void appreciates your interest.';
+    return mesh;
   }
 }

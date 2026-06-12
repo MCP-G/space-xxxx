@@ -90,6 +90,13 @@ export class PixelPipeline {
   private postCamera: THREE.OrthographicCamera;
   private postMaterial: THREE.ShaderMaterial;
   private glitch = 0;
+  // adaptive resolution: hunt the sweet spot between detail and smoothness.
+  // disabled when the player pins ?res= explicitly.
+  private autoScale = typeof location !== 'undefined' && !new URLSearchParams(location.search).has('res');
+  private targetH = INTERNAL_HEIGHT;
+  private ftLast = typeof performance !== 'undefined' ? performance.now() : 0;
+  private ftAcc = 0;
+  private ftN = 0;
 
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
@@ -133,7 +140,7 @@ export class PixelPipeline {
     // (downscaling the dithered frame produces moiré)
     this.renderer.setPixelRatio(dpr);
     this.renderer.setSize(w, h, false);
-    const ih = Math.min(INTERNAL_HEIGHT, Math.round(h * dpr));
+    const ih = Math.min(this.targetH, Math.round(h * dpr));
     const iw = Math.round((w / h) * ih);
     this.target.setSize(iw, ih);
     (this.postMaterial.uniforms.uResolution.value as THREE.Vector2).set(iw, ih);
@@ -150,6 +157,27 @@ export class PixelPipeline {
   }
 
   render(scene: THREE.Scene, camera: THREE.Camera, dt: number, time: number) {
+    // adaptive resolution: sample real frame times (wall clock, not sim dt)
+    if (this.autoScale && typeof document !== 'undefined' && document.visibilityState === 'visible') {
+      const now = performance.now();
+      const ft = now - this.ftLast;
+      this.ftLast = now;
+      if (ft > 1 && ft < 250) { this.ftAcc += ft; this.ftN++; }
+      if (this.ftN >= 90) {
+        const avg = this.ftAcc / this.ftN;
+        this.ftAcc = 0; this.ftN = 0;
+        if (avg > 24 && this.targetH > 540) {
+          // struggling: step down toward smooth
+          this.targetH = Math.max(540, Math.round(this.targetH * 0.8));
+          this.resize();
+        } else if (avg < 13.5 && this.targetH < INTERNAL_HEIGHT) {
+          // headroom: claw detail back, gently
+          this.targetH = Math.min(INTERNAL_HEIGHT, Math.round(this.targetH * 1.12));
+          this.resize();
+        }
+      }
+    }
+
     this.glitch = Math.max(0, this.glitch - dt * 2.5);
     this.postMaterial.uniforms.uTime.value = time;
     this.postMaterial.uniforms.uGlitch.value = this.glitch;
@@ -162,22 +190,11 @@ export class PixelPipeline {
 }
 
 /**
- * PS1-style vertex snapping: patch a material so vertices snap to a coarse
- * grid in clip space, giving the characteristic wobble.
+ * PS1-style vertex snapping — RETIRED. At hi-res the clip-space
+ * quantization made small props (litter, greebles, distant rails) shimmer
+ * and pop in and out of existence. Kept as a no-op so the many call sites
+ * stay stable; the pixel feel now comes from the post chain alone.
  */
-export function applyVertexSnap(material: THREE.Material, snapRes = 320) {
-  material.onBeforeCompile = (shader) => {
-    shader.uniforms.uSnapRes = { value: snapRes };
-    shader.vertexShader = shader.vertexShader
-      .replace(
-        '#include <common>',
-        '#include <common>\nuniform float uSnapRes;'
-      )
-      .replace(
-        '#include <project_vertex>',
-        `#include <project_vertex>
-        gl_Position.xyz = floor(gl_Position.xyz / gl_Position.w * uSnapRes + 0.5) / uSnapRes * gl_Position.w;`
-      );
-  };
-  material.needsUpdate = true;
+export function applyVertexSnap(_material: THREE.Material, _snapRes = 320) {
+  /* intentionally nothing */
 }

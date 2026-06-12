@@ -284,7 +284,7 @@ export class DecaySystem {
         const u = 0.15 + this.rnd() * 0.7;       // along the wall
         const v = 0.25 + this.rnd() * 0.5;       // height fraction
         const y = c.min.y + sy * v;
-        const eps = 0.025 * side;
+        const eps = 0.06 * side;
         if (normalAxis === 'x') {
           decal.position.set(side > 0 ? c.max.x + eps : c.min.x + eps, y, c.min.z + along * u);
           decal.rotation.y = side > 0 ? Math.PI / 2 : -Math.PI / 2;
@@ -310,7 +310,7 @@ export class DecaySystem {
       const z = c.min.z + (0.1 + this.rnd() * 0.8) * sz;
       if (this.rnd() < 0.3) {
         const stain = this.stain(false);
-        stain.position.set(x, c.max.y + 0.012, z);
+        stain.position.set(x, c.max.y + 0.03, z);
         stain.rotation.x = -Math.PI / 2;
         stain.rotation.z = this.rnd() * 6;
         this.root.add(stain);
@@ -327,7 +327,7 @@ export class DecaySystem {
     const h = 0.9 + this.rnd() * 0.5;
     const mesh = new THREE.Mesh(
       new THREE.PlaneGeometry(h * 0.8, h),
-      new THREE.MeshBasicMaterial({ map: tex, transparent: false })
+      new THREE.MeshBasicMaterial({ map: tex, transparent: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })
     );
     mesh.userData.guideTitle = 'MINISTRY POSTER';
     mesh.userData.guideText = 'Printed in bulk. Believed by fewer.';
@@ -339,7 +339,7 @@ export class DecaySystem {
     const w = 1.4 + this.rnd() * 1.4;
     const mesh = new THREE.Mesh(
       new THREE.PlaneGeometry(w, w * 0.3),
-      new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0.92 })
+      new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0.92, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })
     );
     mesh.userData.guideTitle = 'ROBOT GRAFFITI';
     mesh.userData.guideText = 'The drones have opinions. The drones have spray cans. Connect the dots.';
@@ -351,7 +351,7 @@ export class DecaySystem {
     const s = onWall ? 0.8 + this.rnd() * 1.2 : 1 + this.rnd() * 2;
     return new THREE.Mesh(
       new THREE.PlaneGeometry(s, s),
-      new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0.85, depthWrite: false })
+      new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0.85, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })
     );
   }
 }
