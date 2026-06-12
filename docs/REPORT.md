@@ -118,6 +118,15 @@ quarry keeps relocating, ending in a paid punchline. Embellishments:
 thruster flares that stretch with the burn, neon bar sign with a loose
 connection, breathing atmosphere field, +20 content lines.
 
+### The sweet-spot pass
+Frame rate had collapsed under 1080p + ~20 lights + decal sprawl, and
+props flickered in and out of existence. The flicker was the beloved PS1
+vertex-snap shader: at hi-res its clip-space quantization annihilated
+small geometry (and subtly mangled skinned characters). Retired. Z-fights
+fixed with polygon offsets, windows merged to one draw call each, shadows
+halved, and the pipeline gained adaptive resolution that hunts the
+smooth/detailed sweet spot automatically (540p–1080p, pinned ?res= wins).
+
 ## Engineering lessons worth keeping
 
 1. **Tone.js `bpm.rampTo` hard-freezes the tab.** Set `bpm.value`
@@ -130,6 +139,9 @@ connection, breathing atmosphere field, +20 content lines.
    device pixels, always.
 5. **Fog eats everything beyond its far plane** — stars, planets:
    `fog: false`.
+5b. **Stylization shaders don't survive resolution changes.** Vertex snap
+   tuned for 270p destroyed small props at 1080p. Re-audit every
+   aesthetic hack when the target resolution moves.
 6. **GLTFLoader sanitizes node names** (`UpperArm.L` → `UpperArmL`) and
    bone rest-poses make rotation axes empirical questions.
 7. **Collider-driven dressing scales.** Walls and floors are data; decay,

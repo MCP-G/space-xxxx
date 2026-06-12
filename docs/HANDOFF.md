@@ -3,7 +3,22 @@
 *Last updated: June 2026 (post-R2 + decay pass). Everything below is
 implemented, committed, and verified in-browser unless marked otherwise.*
 
-## Latest session: planets, goose chases, embellishments
+## Latest session: performance & flicker fix
+
+Owner reported painful frame rate + props flickering in/out of existence.
+Root causes and fixes:
+- **Vertex snap retired** (`applyVertexSnap` is now a no-op): the PS1
+  clip-space quantization at hi-res made small props shimmer/vanish and
+  even mangled skinned poses. Pixel feel now comes from the post chain.
+- **Z-fighting**: decals/windows get `polygonOffset` + 0.06 standoffs;
+  floor stains lifted to +0.03.
+- **Draw calls**: windows are now ONE mesh each (frame + sheen baked into
+  pooled textures) instead of six. Shadow map 2048→1024.
+- **Adaptive resolution** (PixelPipeline): samples real frame times every
+  ~90 frames; steps internal height 1080↔540 (×0.8 down at >24ms avg,
+  ×1.12 up at <13.5ms) to hold the sweet spot. Pinning `?res=` disables it.
+
+## Previous session: planets, goose chases, embellishments
 
 - **Planets** (sector.ts): 2-3 per sector, seeded — banded canvas
   textures (4 palettes), storm ellipses, optional tilted rings, rim
