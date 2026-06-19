@@ -11,12 +11,12 @@ the first greybox corridor to the goose chase. Maintained alongside
 
 | | |
 |---|---|
-| Commits | 21 (each one a chapter; `git log` reads as the diary) |
+| Commits | 23 (each one a chapter; `git log` reads as the diary) |
 | Code | ~5,100 lines TS + Solidity across `src/` and `contracts/` |
 | Tests | 12 (procgen determinism + asset-library contract) |
 | 3D assets | 9 files, all CC0 Quaternius (2 ships, 5 humanoids, animated mannequin + clips) |
 | Animation clips | 46 (Universal Animation Library) |
-| Procedural content | 26 slogan posters · 28 graffiti tags · 13 terminal lines · 8 ship's-log entries · 8 planet names · 4 goose chases |
+| Procedural content | 26 slogan posters · 28 graffiti tags · 13 terminal lines · 8 ship's-log entries · 8 planet names · 6 alien bards · 4 goose chases |
 | Repo | https://github.com/MCP-G/space-xxxx |
 
 ## The pitch
@@ -126,6 +126,19 @@ small geometry (and subtly mangled skinned characters). Retired. Z-fights
 fixed with polygon offsets, windows merged to one draw call each, shadows
 halved, and the pipeline gained adaptive resolution that hunts the
 smooth/detailed sweet spot automatically (540p–1080p, pinned ?res= wins).
+
+### Landable poetry planets (Opus 4.8)
+Owner request: land on the planets, each with its own classical score and a
+populace of alien Shakespeares / Fabian poets with dialogue and a shop.
+Built: planets gain a floating terrace `dock` at equator height (so the
+world looms behind the bards), a faint self-glow for the night-side face,
+2-3 tinted mannequin bards with cycling Adams-Shakespeare quotes, a themed
+poetry shop (the market panel, market id >=100), and a per-planet seeded
+classical piece (strings + music-box arpeggio, timer-driven so it never
+touches the Transport). Full lifecycle cleanup on takeoff. Also: the pilot
+seat became an unmistakable glowing chair + pulsing chevron. The fiddly bit
+was the terrace/planet framing — solved with a planet-local placement frame
+and forcing the pad to the planet's equator height.
 
 ### The audit pass (Opus 4.8)
 Another run-through: two parallel code auditors (leaks + logic) plus a live

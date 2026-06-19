@@ -3,7 +3,26 @@
 *Last updated: June 2026 (post-R2 + decay pass). Everything below is
 implemented, committed, and verified in-browser unless marked otherwise.*
 
-## Latest session: audit pass (leaks, logic, persistence)
+## Latest session: landable poetry planets
+
+Planets are now landing destinations. Each planet (sector.ts) gets a `dock`
+(floating terrace on its near face, equator height, columns/railings/warm
+light) + a `culture` payload (poets, shopName, shopId>=100, musicSeed), and
+a faint emissive self-glow so the night-side face reads. Nav-targetable via
+`dockSpots` automatically. Lifecycle in main.ts: `enterPlanet` (spawn 2-3
+alien-Shakespeare bard Characters with cycling dialogue, open the poetry
+shop = themed market panel id>=100, start `audio.planetMusic(seed)`) and
+`leavePlanet` (despawn, stop music, restore groove) — hooked into
+finalizeDock / beginFlight / setSector. `AudioDirector.planetMusic` is a
+seeded, timer-driven classical piece (strings + music-box arp, per-planet
+key, no Transport coupling, ducks the groove). `InteractionRegistry.remove`
+added for dynamic poet dialogue. Pilot seat rebuilt as a glowing captain's
+chair + pulsing "press E" chevron (`Ship.tickSeatBeacon`, hidden in pilot
+view). Verified: landed, heard bards, shopped, took off cleanly; 12 tests
+pass, no errors. Note: planet placement uses a local frame (inward =
+toward planet, lateral across the terrace) so it reads from any approach.
+
+## Previous session: audit pass (leaks, logic, persistence)
 
 Two parallel auditors + live playtest. Fixed: CanvasTexture leak on sector
 regen (`setSector` now disposes `material.map`/`emissiveMap` + material
