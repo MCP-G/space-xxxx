@@ -74,6 +74,7 @@ export class PlayerState {
       engineLevel: this.engineLevel,
       cargo: [...this.cargo.entries()],
       weapons: this.weapons,
+      weaponIndex: this.weaponIndex,
     }));
   }
 
@@ -86,6 +87,8 @@ export class PlayerState {
       this.engineLevel = s.engineLevel ?? 1;
       this.cargo = new Map(s.cargo ?? []);
       this.weapons = s.weapons?.length ? s.weapons : ['blaster'];
+      // clamp index into the owned list — a stale/short save must not select air
+      this.weaponIndex = Math.min(Math.max(0, s.weaponIndex ?? 0), this.weapons.length - 1);
     } catch { /* corrupted save: the Ministry regrets nothing */ }
   }
 }

@@ -511,16 +511,27 @@ let dockSpots = buildDockSpots();
 
 /** Tear down the current sector and generate a new one from `seed`. */
 function setSector(seed: number) {
+  // a granted deed can land mid-cinematic; don't strand the letterbox
+  if (cine.active) { cine.active = false; hud.setCinematic(false); }
   world.scene.remove(sector.root);
   sector.root.traverse((o: any) => {
     o.geometry?.dispose?.();
-    o.material?.dispose?.();
+    const mats = Array.isArray(o.material) ? o.material : o.material ? [o.material] : [];
+    for (const m of mats) {
+      // free canvas/image textures too (decay posters, graffiti, windows,
+      // planet maps) — material.dispose() alone leaks them on every regen
+      m.map?.dispose?.();
+      m.emissiveMap?.dispose?.();
+      m.dispose?.();
+    }
   });
   sector = buildSector(world, seed);
   dockSpots = buildDockSpots();
   activePoi = null;
   openMarketId = null;
+  boardOpen = false;
   hud.setMarket(null);
+  missions.generate(seed); // fresh offers for the new sector (active job kept)
   populateSector();
   // anyone not at the station gets repossessed to the hangar, for safety
   ship.park(HANGAR_PARK.x, HANGAR_PARK.y, HANGAR_PARK.z, HANGAR_PARK.yaw);
@@ -764,7 +775,7 @@ window.addEventListener('resize', () => {
 // debug/test hook (drives scripted verification; harmless in production)
 Object.assign(window as any, {
   __game: {
-    walk, flight, ship, dockAt, enterFlight, setSector, combat, player, fire, missions,
+    walk, flight, ship, dockAt, enterFlight, setSector, combat, player, fire, missions, pipeline,
     sector: () => sector,
     dockSpots: () => dockSpots,
     mode: () => mode,

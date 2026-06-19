@@ -152,8 +152,9 @@ export class MissionBoard {
     const m = this.active;
     if (!m || m.kind !== 'goose' || dockName !== m.targetDock) return 'cold';
     this.progress++;
-    if (this.progress >= m.qty) return 'done';
     const options = allDocks.filter((d) => d !== dockName);
+    // no further hops possible (or quota met) → corner the quarry, pay out
+    if (this.progress >= m.qty || options.length === 0) return 'done';
     m.targetDock = options[(m.id * 7 + this.progress * 13) % options.length];
     this.save();
     return 'moved';
