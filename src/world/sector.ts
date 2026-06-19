@@ -37,6 +37,15 @@ export interface Poi {
   };
   guideTitle: string;
   guideText: string;
+  /** Planet surface culture: who lives there, the shop, the score. */
+  culture?: PlanetCulture;
+}
+
+export interface PlanetCulture {
+  poets: { name: string; tint: number; lines: string[] }[];
+  shopName: string;
+  shopId: number;   // market id (>=100) for the planet's poetry shop
+  musicSeed: number;
 }
 
 export interface Sector {
@@ -71,6 +80,47 @@ export const DERELICT_LOGS = [
   'LOG 4417 (AUTOMATED): THE NOISE WOULD LIKE ITS LOG ENTRIES BACK.',
   'LOG 4418 (AUTOMATED): VISIBLE PLANET COUNT UNCHANGED. PLANETS REMAIN ALOOF.',
 ];
+
+// The bards of the outer worlds: alien Shakespeares and Fabian versifiers.
+export const PLANET_POETS: { name: string; tint: number; lines: string[] }[] = [
+  { name: 'WILLIAM SHAKES-BEING', tint: 0xe8d0a0, lines: [
+    'To be, or to be marginally otherwise — that is the configurable option.',
+    'Shall I compare thee to a summer\'s day? The day has declined to comment.',
+    'We are such stuff as deadlines are made on, and our little life is rounded with a meeting.',
+    'Friends, Romans, country-entities — lend me your auditory processors.',
+  ]},
+  { name: 'Q!XBALL, BARD OF XÓR', tint: 0x7fffd4, lines: [
+    'I sing the body improbable!',
+    'My sonnets have fourteen lines and one binding disclaimer.',
+    'Rhyme is a social construct. So, the landlord assures me, is rent.',
+    'I contain multitudes. Most of them are subletting.',
+  ]},
+  { name: 'MARGERY VERSE-9', tint: 0xff9ad0, lines: [
+    'All the galaxy\'s a stage, and the stage has filed for bankruptcy.',
+    'Brevity is the soul of wit. I, regrettably, am paid by the word.',
+    'What light through yonder airlock breaks? It is the east, and it is overdue.',
+    'The course of true love never did run on time.',
+  ]},
+  { name: 'THE FABIAN ODE COLLECTIVE', tint: 0xb0a0e0, lines: [
+    'We shall reform poetry. Gradually. Very gradually.',
+    'A committee is the only metaphor we have ever fully trusted.',
+    'We move at the speed of consensus, which is to say: backwards, politely.',
+    'Our manifesto is a villanelle. Nobody has finished reading it.',
+  ]},
+  { name: 'GLERN, WHO RHYMES IN BINARY', tint: 0xa0ffc0, lines: [
+    '01101111 — that, dear traveller, was a couplet. The good kind.',
+    'I dreamt I was free verse. I woke up subscribed.',
+    'Each foot of my pentameter is, for tax purposes, a separate entity.',
+    'I do not fear death. Death does not compile.',
+  ]},
+  { name: 'SOBS THE LESSER', tint: 0x9fd8ff, lines: [
+    'I wept; therefore I am. Slightly damp, but extant.',
+    'My tragedies are very well reviewed by people who left at the interval.',
+    'Encore? I have not yet finished apologising for the first one.',
+    'Alas, poor Yorick. He owed me money.',
+  ]},
+];
+export const PLANET_SHOPS = ['THE BARD MARKET', 'VERSE & CURIOS', 'THE METAPHOR EXCHANGE', 'SONNETS, ETC.'];
 
 function rockMat() {
   const mat = new THREE.MeshStandardMaterial({ color: 0x4a4060, roughness: 0.95, metalness: 0.02 });
@@ -604,6 +654,13 @@ export function buildSector(world: World, seed: number): Sector {
       ? new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9, metalness: 0 })
       : new THREE.MeshStandardMaterial({ color: 0x6a3a78, roughness: 0.9 });
     mat.fog = false; // planets live beyond the fog, like the stars
+    // faint self-glow so the night side still reads against space (you can
+    // approach and land on the dark face without it vanishing)
+    if (tex) {
+      mat.emissiveMap = tex;
+      mat.emissive = new THREE.Color(0x5a5a5a);
+      mat.emissiveIntensity = 0.5;
+    }
     const planet = new THREE.Mesh(new THREE.SphereGeometry(radius, 48, 32), mat);
     planet.position.copy(pos);
     planet.rotation.z = (rnd() - 0.5) * 0.5;
@@ -628,12 +685,67 @@ export function buildSector(world: World, seed: number): Sector {
     const rim = new THREE.PointLight(0xfff0d8, radius * 2, radius * 6, 1.8);
     rim.position.copy(pos).add(new THREE.Vector3(radius * 1.6, radius, -radius));
     scene.add(rim);
+
+    // --- a landing terrace on the planet's near face: a poetry amphitheatre
+    // floating just off the surface, the world looming behind the poets.
+    // Flat approach vector + equator height so the planet fills the backdrop
+    // when you stand on the pad and look inward.
+    const toOrigin = new THREE.Vector3(-pos.x, 0, -pos.z).normalize();
+    const padC = pos.clone().addScaledVector(toOrigin, radius + 14);
+    padC.y = pos.y;
+    const pPad: ColliderBox[] = [];
+    padBox(scene, pPad, 20, 0.8, 20, padC.x, padC.y - 0.4, padC.z, 0x2a2438);
+    // marble-ish rim and railings
+    for (const [rw, rd, rx, rz] of [[20, 0.4, 0, -10], [20, 0.4, 0, 10], [0.4, 20, -10, 0], [0.4, 20, 10, 0]] as const) {
+      padBox(scene, pPad, rw, 1.1, rd, padC.x + rx, padC.y + 0.55, padC.z + rz, 0x9fd8ff, true);
+    }
+    // columns — poetry needs columns
+    for (let k = 0; k < 6; k++) {
+      const a = (k / 6) * Math.PI * 2;
+      const cx = padC.x + Math.cos(a) * 7.5;
+      const cz = padC.z + Math.sin(a) * 7.5;
+      const col = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.5, 0.6, 5, 10),
+        new THREE.MeshStandardMaterial({ color: 0xd8d0e0, roughness: 0.8 })
+      );
+      col.position.set(cx, padC.y + 2.5, cz);
+      scene.add(col);
+    }
+    // warm amphitheatre lighting
+    const stageLight = new THREE.PointLight(0xffe0b0, 30, 30, 1.6);
+    stageLight.position.set(padC.x, padC.y + 6, padC.z);
+    scene.add(stageLight);
+
+    // culture: 2-3 alien bards, a shop, a key for the score
+    const poetPool = PLANET_POETS.slice();
+    const poets = [];
+    const nPoets = 2 + Math.floor(rnd() * 2);
+    for (let k = 0; k < nPoets; k++) {
+      const idx = Math.floor(rnd() * poetPool.length);
+      poets.push(poetPool.splice(idx, 1)[0]);
+    }
+    const culture: PlanetCulture = {
+      poets,
+      shopName: PLANET_SHOPS[Math.floor(rnd() * PLANET_SHOPS.length)],
+      shopId: 100 + sector.pois.filter((p) => p.kind === 'planet').length,
+      musicSeed: (seed ^ (i * 2654435761)) >>> 0,
+    };
+
     sector.pois.push({
       name: pname,
       kind: 'planet',
       position: pos,
+      dock: {
+        // ship lands on the OUTER edge (where you fly in from); the player
+        // stands at centre and walks inward toward the bards + the planet
+        shipPos: padC.clone().addScaledVector(toOrigin, 7).setY(padC.y),
+        standPos: padC.clone().setY(padC.y),
+        floorY: padC.y,
+        colliders: pPad,
+      },
       guideTitle: pname,
       guideText: pguide,
+      culture,
     });
   }
 

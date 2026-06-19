@@ -112,11 +112,39 @@ export class Ship {
     add(new THREE.BoxGeometry(1.5, 2.4, 0.3), darkMat, -1.45, 1.2, -3.2);
     add(new THREE.BoxGeometry(1.5, 2.4, 0.3), darkMat, 1.45, 1.2, -3.2);
 
-    // pilot seat + console
-    const seat = add(new THREE.BoxGeometry(0.8, 0.6, 0.8), trimMat, 0, 0.3, -2.6);
-    seat.userData.guideTitle = 'PILOT SEAT';
-    seat.userData.guideText = 'Certified for one (1) humanoid of average regret.';
-    add(new THREE.BoxGeometry(1.6, 0.7, 0.4), darkMat, 0, 0.9, -3.6);
+    // pilot seat — unmistakable: a glowing captain's chair you can spot
+    // from the ramp. Walk to it and press E to fly.
+    const seatGlow = new THREE.MeshStandardMaterial({
+      color: 0x7fffd4, emissive: new THREE.Color(0x1f5a4a), emissiveIntensity: 1.4,
+      metalness: 0.3, roughness: 0.4,
+    });
+    const base = add(new THREE.BoxGeometry(0.7, 0.5, 0.7), darkMat, 0, 0.25, -2.6);
+    base.userData.guideTitle = 'PILOT SEAT';
+    base.userData.guideText = 'Certified for one (1) humanoid of average regret. Press E to fly.';
+    const cushion = add(new THREE.BoxGeometry(0.62, 0.16, 0.62), seatGlow, 0, 0.55, -2.6);
+    cushion.userData.guideTitle = 'PILOT SEAT';
+    cushion.userData.guideText = 'Press E to take the seat and fly.';
+    add(new THREE.BoxGeometry(0.62, 0.9, 0.14), seatGlow, 0, 1.0, -2.95);   // backrest
+    add(new THREE.BoxGeometry(0.14, 0.3, 0.5), darkMat, -0.38, 0.75, -2.6); // armrests
+    add(new THREE.BoxGeometry(0.14, 0.3, 0.5), darkMat, 0.38, 0.75, -2.6);
+    add(new THREE.BoxGeometry(1.6, 0.7, 0.4), darkMat, 0, 0.9, -3.6);       // console
+    // a glowing ring on the deck around the seat
+    const ring = add(new THREE.TorusGeometry(0.7, 0.04, 8, 24),
+      new THREE.MeshBasicMaterial({ color: 0x7fffd4 }), 0, 0.04, -2.6);
+    ring.rotation.x = Math.PI / 2;
+    // soft seat light + a floating "sit here" chevron that pulses
+    const seatLight = new THREE.PointLight(0x7fffd4, 4, 6, 1.6);
+    seatLight.position.set(0, 1.4, -2.6);
+    this.group.add(seatLight);
+    const chevron = new THREE.Mesh(
+      new THREE.ConeGeometry(0.18, 0.3, 4),
+      new THREE.MeshBasicMaterial({ color: 0x7fffd4, transparent: true, opacity: 0.85 })
+    );
+    chevron.rotation.x = Math.PI; // point down at the seat
+    chevron.position.set(0, 2.0, -2.6);
+    chevron.name = 'seat-beacon';
+    this.seatBeacon = chevron;
+    this.group.add(chevron);
 
     // cargo crates in the hold
     add(new THREE.BoxGeometry(1, 1, 1), darkMat, -1.4, 0.5, 1.5);
@@ -266,6 +294,14 @@ export class Ship {
   private externalModel: THREE.Object3D | null = null;
   /** Canopy glass + frame, visible only from the pilot seat. */
   readonly cockpitGlass = new THREE.Group();
+  private seatBeacon?: THREE.Mesh;
+
+  /** Pulse the "sit here" chevron; called each frame while on foot. */
+  tickSeatBeacon(t: number) {
+    if (!this.seatBeacon) return;
+    this.seatBeacon.position.y = 1.95 + Math.sin(t * 3) * 0.12;
+    this.seatBeacon.rotation.y = t * 1.5;
+  }
   /** Engine flares; scale follows thrust via setThrustVisual. */
   readonly flares = new THREE.Group();
   private flareLevel = 0;
@@ -321,6 +357,7 @@ export class Ship {
     if (this.externalModel) this.externalModel.visible = !piloting;
     else this.exterior.visible = !piloting ? true : this.exterior.visible;
     this.cockpitGlass.visible = piloting;
+    if (this.seatBeacon) this.seatBeacon.visible = !piloting; // declutter cockpit
   }
 
   /** Park: snap to position with yaw only (level flight attitude). */

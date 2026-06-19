@@ -17,6 +17,12 @@ export class InteractionRegistry {
     return item;
   }
 
+  /** Remove a previously-added interactable (dynamic planet dialogue, etc). */
+  remove(item: Interactable) {
+    const i = this.items.indexOf(item);
+    if (i >= 0) this.items.splice(i, 1);
+  }
+
   /** Nearest enabled interactable within reach of `from`, or null. */
   nearest(from: THREE.Vector3): Interactable | null {
     let best: Interactable | null = null;

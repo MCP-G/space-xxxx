@@ -15,7 +15,7 @@ import { FlightController } from './player/FlightController';
 import { Ship } from './ship/Ship';
 import { AudioDirector } from './audio/AudioDirector';
 import { Hud } from './ui/hud';
-import { InteractionRegistry } from './core/Interactable';
+import { InteractionRegistry, type Interactable } from './core/Interactable';
 import { Ministry } from './chain/ministry';
 import { PlayerState, marketPrices, COMMODITIES, CARGO_CAPACITY } from './game/economy';
 import { CombatSystem, WEAPONS } from './game/combat';
@@ -109,6 +109,7 @@ let activePoi: Poi | null = null;
 const cine = new Cinematic();
 
 function beginFlight() {
+  leavePlanet(); // bards wave you off; the score fades back to synth
   mode = 'fly';
   walk.active = false;
   flight.active = true;
@@ -184,6 +185,7 @@ interactions.add({
 
 // --- markets: trade panel with seeded prices per location
 let openMarketId: number | null = null;
+let planetShopTitle = ''; // set when a planet shop opens (market ids >= 100)
 function renderMarket() {
   if (openMarketId === null) { hud.setMarket(null); return; }
   const listings = marketPrices(sector.seed, openMarketId);
@@ -193,8 +195,11 @@ function renderMarket() {
       `<td style="color:#7fffd4">${l.buy}¢</td><td style="color:#ff2e88">${l.sell}¢</td>` +
       `<td style="color:#ffd23e">x${have}</td></tr>`;
   }).join('');
+  const title = openMarketId === 1 ? 'THE RESTAURANT AT THE END OF THE CORRIDOR'
+    : openMarketId === 2 ? 'BEACON KIOSK (UNSTAFFED, JUDGEMENTAL)'
+    : planetShopTitle;
   hud.setMarket(
-    `<b>${openMarketId === 1 ? 'THE RESTAURANT AT THE END OF THE CORRIDOR' : 'BEACON KIOSK (UNSTAFFED, JUDGEMENTAL)'}</b><br>` +
+    `<b>${title}</b><br>` +
     `<span style="color:#b8b8d8">[1-6] buy · SHIFT+[1-6] sell · E close</span>` +
     `<table style="width:100%;border-collapse:collapse">` +
     `<tr style="color:#666"><td></td><td>GOODS</td><td>BUY</td><td>SELL</td><td>HOLD</td></tr>${rows}</table>` +
@@ -238,6 +243,77 @@ const kioskInteract = interactions.add({
   enabled: false,
   onUse: () => { openMarketId = openMarketId === null ? 2 : null; renderMarket(); },
 });
+
+// ---- planet surfaces: alien bards, dialogue, and a poetry shop ----
+let onPlanet: Poi | null = null;
+const planetChars: Character[] = [];
+const planetDialogue: Interactable[] = [];
+const planetShopInteract = interactions.add({
+  position: new THREE.Vector3(),
+  radius: 2.8,
+  label: 'E — BROWSE THE SHOP',
+  enabled: false,
+  onUse: () => {
+    if (!onPlanet) return;
+    openMarketId = openMarketId === null ? onPlanet.culture!.shopId : null;
+    renderMarket();
+  },
+});
+
+function enterPlanet(poi: Poi) {
+  if (!poi.culture || !poi.dock) return;
+  onPlanet = poi;
+  planetShopTitle = `${poi.culture.shopName} — ${poi.name}`;
+  audio.planetMusic(poi.culture.musicSeed);
+  const dock = poi.dock;
+  // planet-local frame: inward points at the planet, lateral runs across the
+  // terrace. Orientation-independent so the layout reads from any approach.
+  const inward = poi.position.clone().sub(dock.standPos).setY(0).normalize();
+  const lateral = inward.clone().cross(new THREE.Vector3(0, 1, 0)).normalize();
+  const facingYaw = Math.atan2(-inward.x, -inward.z) + Math.PI; // bards face the visitor
+  // face the player toward the bards + the looming planet on arrival
+  walk.lookAt(poi.position);
+  planetShopInteract.position.copy(dock.standPos)
+    .addScaledVector(lateral, 5).addScaledVector(inward, 1);
+  planetShopInteract.enabled = true;
+  // spawn the bards in a gentle arc ahead, the planet at their backs
+  poi.culture.poets.forEach((poet, i) => {
+    const spread = (i - (poi.culture!.poets.length - 1) / 2) * 2.6;
+    const p = dock.standPos.clone()
+      .addScaledVector(inward, 5.5).addScaledVector(lateral, spread);
+    Character.spawn({
+      tint: poet.tint, clip: 'Idle_Talking_Loop',
+      position: new THREE.Vector3(p.x, dock.floorY, p.z),
+      yaw: facingYaw, greets: true,
+      guideTitle: poet.name, guideText: poet.lines[0],
+    }).then((c) => {
+      if (onPlanet !== poi) return; // player left before the bard loaded
+      world.scene.add(c.root);
+      planetChars.push(c);
+      let li = 1;
+      planetDialogue.push(interactions.add({
+        position: c.root.position.clone().add(new THREE.Vector3(0, 1, 0)),
+        radius: 3,
+        label: `E — HEAR ${poet.name}`,
+        enabled: true,
+        onUse: () => { hud.say(`${poet.name}: “${poet.lines[li % poet.lines.length]}”`, 7); li++; },
+      }));
+    }).catch(() => {});
+  });
+  hud.say(`LANDED ON ${poi.name}. THE LOCAL BARDS REGARD YOU WITH IAMBIC SUSPICION.`, 6);
+}
+
+function leavePlanet() {
+  if (!onPlanet) return;
+  audio.stopPlanetMusic();
+  for (const c of planetChars) world.scene.remove(c.root);
+  planetChars.length = 0;
+  for (const d of planetDialogue) interactions.remove(d);
+  planetDialogue.length = 0;
+  planetShopInteract.enabled = false;
+  if (openMarketId !== null && openMarketId >= 100) { openMarketId = null; hud.setMarket(null); }
+  onPlanet = null;
+}
 
 // --- salvage + combat
 const combat = new CombatSystem(world.scene, {
@@ -513,6 +589,7 @@ let dockSpots = buildDockSpots();
 function setSector(seed: number) {
   // a granted deed can land mid-cinematic; don't strand the letterbox
   if (cine.active) { cine.active = false; hud.setCinematic(false); }
+  leavePlanet();
   world.scene.remove(sector.root);
   sector.root.traverse((o: any) => {
     o.geometry?.dispose?.();
@@ -608,6 +685,7 @@ function finalizeDock(spot: DockSpot) {
       missionPayout();
     }
   }
+  if (spot.poi?.kind === 'planet') enterPlanet(spot.poi);
   pipeline.triggerGlitch(0.6);
   audio.glitchBurst();
 }
@@ -812,6 +890,7 @@ function frame(now: number) {
 
   for (const m of activeMixers) m.update(dt);
   for (const c of characters) c.update(dt, walk.camera.position);
+  for (const c of planetChars) c.update(dt, walk.camera.position);
 
   // space objects drift and tumble, because nothing out here is bolted down
   for (const f of sector.floaters) {
@@ -845,6 +924,7 @@ function frame(now: number) {
     hud.setFlight(null);
   } else if (mode === 'walk') {
     ship.seatWorld(seatPos);
+    ship.tickSeatBeacon(t);
     seatInteract.enabled = true;
     const colliders = [
       ...world.colliders,

@@ -24,6 +24,8 @@ export class AudioDirector {
   private mode: MusicMode = 'station';
   private intensity = 0;
   private intensityClock = 0;
+  private planetSynths: { dispose: () => void }[] = [];
+  private planetTimers: number[] = [];
 
   async start() {
     if (this.started) return;
@@ -281,6 +283,64 @@ export class AudioDirector {
       this.musicGain.gain.rampTo(1, 1.2);
       setTimeout(() => { pad.dispose(); lead.dispose(); boom.dispose(); }, 2200);
     }, 3200);
+  }
+
+  /**
+   * Planet music: a gentle, seeded classical piece — soft strings + a
+   * music-box arpeggio in a key chosen by the planet. Decoupled from the
+   * Transport (timer-driven) so it never touches bpm, and routed straight
+   * to master so it isn't bitcrushed. Ducks the synth groove right down.
+   */
+  planetMusic(seed: number) {
+    if (!this.started) return;
+    this.stopPlanetMusic();
+    this.musicGain.gain.rampTo(0.05, 1.5); // the acid groove bows out
+
+    // six progressions, each a different key → "different music on each planet"
+    const PROGRESSIONS: string[][][] = [
+      [['C3','E3','G3','C4'], ['G2','D3','G3','B3'], ['A2','E3','A3','C4'], ['F2','C3','F3','A3']], // C: I V vi IV
+      [['D3','F#3','A3','D4'], ['A2','E3','A3','C#4'], ['B2','F#3','B3','D4'], ['G2','D3','G3','B3']], // D
+      [['F2','A2','C3','F3'], ['C3','G3','C4','E4'], ['D3','A3','D4','F4'], ['A#2','F3','A#3','D4']], // F
+      [['G2','B2','D3','G3'], ['D3','A3','D4','F#4'], ['E3','B3','E4','G4'], ['C3','G3','C4','E4']], // G
+      [['E3','G3','B3','E4'], ['C#3','E3','A3','C#4'], ['A2','E3','A3','C#4'], ['B2','F#3','B3','D#4']], // E vi-ish
+      [['A2','C3','E3','A3'], ['F2','A2','C3','F3'], ['G2','B2','D3','G3'], ['E3','G#3','B3','E4']], // Am-ish
+    ];
+    const chords = PROGRESSIONS[seed % PROGRESSIONS.length];
+
+    const strings = new Tone.PolySynth(Tone.Synth, {
+      oscillator: { type: 'triangle' },
+      envelope: { attack: 1.3, decay: 1.2, sustain: 0.55, release: 3 },
+    }).connect(this.master);
+    strings.volume.value = -13;
+    const bells = new Tone.Synth({
+      oscillator: { type: 'sine' },
+      envelope: { attack: 0.004, decay: 0.5, sustain: 0, release: 0.4 },
+    }).connect(this.master);
+    bells.volume.value = -17;
+    this.planetSynths.push(strings, bells);
+
+    let ci = 0;
+    const playChord = () => { strings.triggerAttackRelease(chords[ci % chords.length], 3.1); ci++; };
+    playChord();
+    this.planetTimers.push(window.setInterval(playChord, 3300));
+
+    let ai = 0;
+    this.planetTimers.push(window.setInterval(() => {
+      const chord = chords[(ci - 1 + chords.length) % chords.length];
+      const note = chord[ai % chord.length];
+      bells.triggerAttackRelease(note, '8n');
+      // occasionally an octave-up sparkle
+      if (ai % 7 === 3) bells.triggerAttackRelease(note.replace(/(\d)$/, (_m, d) => String(+d + 1)), '16n');
+      ai++;
+    }, 430));
+  }
+
+  stopPlanetMusic() {
+    for (const t of this.planetTimers) clearInterval(t);
+    this.planetTimers = [];
+    for (const s of this.planetSynths) { try { setTimeout(() => s.dispose(), 200); } catch { /* gone */ } }
+    this.planetSynths = [];
+    if (this.started) this.musicGain.gain.rampTo(1, 1.5);
   }
 
   /** Pulse cannon: a deep descending whomp with bite. */
