@@ -35,7 +35,8 @@ npm run contracts    # compile Solidity (solc-js) → contracts/out/
 
 ## Where things stand
 
-See **[docs/HANDOFF.md](docs/HANDOFF.md)** for the full systems map and
+**New here? Read [docs/START-HERE.md](docs/START-HERE.md) first.** Then
+see **[docs/HANDOFF.md](docs/HANDOFF.md)** for the full systems map and
 current state, and **[docs/AAA-PLAN.md](docs/AAA-PLAN.md)** for the plan to
 take every asset and system to AAA-acceptable feel on a reusable,
 object-based asset library.

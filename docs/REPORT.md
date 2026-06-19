@@ -11,7 +11,7 @@ the first greybox corridor to the goose chase. Maintained alongside
 
 | | |
 |---|---|
-| Commits | 19 (each one a chapter; `git log` reads as the diary) |
+| Commits | 21 (each one a chapter; `git log` reads as the diary) |
 | Code | ~5,100 lines TS + Solidity across `src/` and `contracts/` |
 | Tests | 12 (procgen determinism + asset-library contract) |
 | 3D assets | 9 files, all CC0 Quaternius (2 ships, 5 humanoids, animated mannequin + clips) |
@@ -126,6 +126,21 @@ small geometry (and subtly mangled skinned characters). Retired. Z-fights
 fixed with polygon offsets, windows merged to one draw call each, shadows
 halved, and the pipeline gained adaptive resolution that hunts the
 smooth/detailed sweet spot automatically (540p–1080p, pinned ?res= wins).
+
+### The audit pass (Opus 4.8)
+Another run-through: two parallel code auditors (leaks + logic) plus a live
+playtest. Found and fixed four genuine defects that had survived prior
+sessions: (1) a **GPU texture leak** — `setSector` disposed materials but
+not their `.map`, so every Ministry deed grant leaked ~40 canvas textures
+(posters, graffiti, windows, planets); (2) **weaponIndex never persisted**,
+silently resetting the pulse cannon to the blaster on reload; (3) an
+unguarded `gooseArrived` edge (`options.length===0` → undefined target);
+(4) **setSector mid-cinematic soft-locked** the letterbox. All verified in
+the browser (texture count now drops across regens, weapon survives reload,
+goose completes, cinematic interrupt returns control). Also: `setSector`
+now refreshes board offers for the new sector, and the `__game` hook
+exposes `pipeline` for renderer probing. Wrote `docs/START-HERE.md` — a
+self-contained onboarding doc for a fresh model.
 
 ## Engineering lessons worth keeping
 

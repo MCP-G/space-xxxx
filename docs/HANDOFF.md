@@ -3,7 +3,18 @@
 *Last updated: June 2026 (post-R2 + decay pass). Everything below is
 implemented, committed, and verified in-browser unless marked otherwise.*
 
-## Latest session: performance & flicker fix
+## Latest session: audit pass (leaks, logic, persistence)
+
+Two parallel auditors + live playtest. Fixed: CanvasTexture leak on sector
+regen (`setSector` now disposes `material.map`/`emissiveMap` + material
+arrays — was leaking ~40 textures/regen), `weaponIndex` persistence
+(pulse selection was lost every reload), `gooseArrived` empty-options
+guard, and a setSector-mid-cinematic soft-lock. `setSector` also refreshes
+board offers now; `__game` hook exposes `pipeline`. New entry doc:
+`docs/START-HERE.md` (read this first if you're a fresh model). All 12
+tests pass, no console errors, no flicker.
+
+## Previous session: performance & flicker fix
 
 Owner reported painful frame rate + props flickering in/out of existence.
 Root causes and fixes:
