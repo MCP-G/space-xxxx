@@ -306,7 +306,7 @@ function enterPlanet(poi: Poi) {
 function leavePlanet() {
   if (!onPlanet) return;
   audio.stopPlanetMusic();
-  for (const c of planetChars) world.scene.remove(c.root);
+  for (const c of planetChars) { world.scene.remove(c.root); c.dispose(); }
   planetChars.length = 0;
   for (const d of planetDialogue) interactions.remove(d);
   planetDialogue.length = 0;

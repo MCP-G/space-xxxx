@@ -145,8 +145,9 @@ persistence, goose empty-options guard, cinematic-interrupt soft-lock.
 - Wreck-field landing pad is cramped (you disembark against your hull).
 - Pulse-cannon slugs are dodgeable at long range (intended: blaster for
   reach, pulse for burst).
-- Planets are visible landmarks but not in the `T` nav-target cycle (nav
-  cycles `dockSpots` only; planets aren't dockable). Easy to add if wanted.
+- On a planet's NIGHT side the surface reads as a dim looming mass (lit
+  by a distant sun); a faint self-glow keeps it visible. Could add a
+  planet-facing light for a brighter, more dramatic landing if wanted.
 
 ## 8. Working agreement (owner preferences)
 

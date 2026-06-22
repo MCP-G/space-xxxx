@@ -11,12 +11,12 @@ the first greybox corridor to the goose chase. Maintained alongside
 
 | | |
 |---|---|
-| Commits | 23 (each one a chapter; `git log` reads as the diary) |
+| Commits | 26 (each one a chapter; `git log` reads as the diary) |
 | Code | ~5,100 lines TS + Solidity across `src/` and `contracts/` |
 | Tests | 12 (procgen determinism + asset-library contract) |
 | 3D assets | 9 files, all CC0 Quaternius (2 ships, 5 humanoids, animated mannequin + clips) |
 | Animation clips | 46 (Universal Animation Library) |
-| Procedural content | 26 slogan posters · 28 graffiti tags · 13 terminal lines · 8 ship's-log entries · 8 planet names · 6 alien bards · 4 goose chases |
+| Procedural content | 26 slogan posters · 28 graffiti tags · 19 terminal lines · 8 ship's-log entries · 12 planet names · 6 alien bards · 4 goose chases |
 | Repo | https://github.com/MCP-G/space-xxxx |
 
 ## The pitch
@@ -126,6 +126,15 @@ small geometry (and subtly mangled skinned characters). Retired. Z-fights
 fixed with polygon offsets, windows merged to one draw call each, shadows
 halved, and the pipeline gained adaptive resolution that hunts the
 smooth/detailed sweet spot automatically (540p–1080p, pinned ?res= wins).
+
+### Full QA sweep (Opus 4.8)
+"Check everything, leave no stone unturned." Production build, 12 tests,
+git sync, repo, and mcp-g.com (owner's unrelated business site) all checked.
+Two audit agents surfaced stale doc numbers (fixed) and one real bug: bard
+Characters leaked their cloned tint materials on every takeoff/sector-change
+— `Character.dispose()` added. Verified leak-free across 5 land/takeoff
+cycles (textures + geometries dead stable) and live-tested every system end
+to end with zero console errors.
 
 ### Landable poetry planets (Opus 4.8)
 Owner request: land on the planets, each with its own classical score and a

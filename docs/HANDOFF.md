@@ -3,6 +3,23 @@
 *Last updated: June 2026 (post-R2 + decay pass). Everything below is
 implemented, committed, and verified in-browser unless marked otherwise.*
 
+## Latest session: full QA sweep (Opus 4.8)
+
+Exhaustive bug hunt — "leave no stone unturned". Production build (`npm run
+build`) green, 12 tests pass, git clean+synced, no leftover debug code, no
+console errors. Two audit agents (docs-vs-code, planet-feature). Fixed: a
+**cloned-material leak** — bard Characters' tinted materials weren't disposed
+on takeoff/sector-change (`Character.dispose()` added, called in
+`leavePlanet`). Verified in-browser: 5 planet land/takeoff cycles hold GPU
+textures (97→97) and geometries (539→539) perfectly stable. Live-tested
+every system: economy caps/floors, all 7 docks (incl. 2 planets), mining,
+combat (both weapons), all 4 contract types + abandon, Ministry filing,
+death/respawn, planet bards+dialogue+shop+music, setSector regen (clean, no
+soft-lock). Corrected stale doc stats (commit count, planet/terminal-line
+counts) and struck superseded "planets not dockable" claims. NOTE:
+mcp-g.com is the owner's *business* site (Linnworks apps) — unrelated to the
+game; the game lives only at github.com/MCP-G/space-xxxx.
+
 ## Latest session: landable poetry planets
 
 Planets are now landing destinations. Each planet (sector.ts) gets a `dock`
@@ -54,8 +71,8 @@ Root causes and fixes:
   textures (4 palettes), storm ellipses, optional tilted rings, rim
   point-light, slow rotation via floaters, `fog: false` (same trap as
   stars). POI kind `'planet'`, nav-targetable, Adams names + guide jokes
-  (BRUNCH, TAXHAVEN IX, THE LONG QUEUE…). Not dockable (by design:
-  "not accepting visitors. or apologies.").
+  (BRUNCH, TAXHAVEN IX, THE LONG QUEUE…). NOTE: superseded — planets are
+  now landable (see the latest-session entry at the top of this file).
 - **Wild goose chases** (missions.ts kind `'goose'`): 4th board offer.
   Multi-hop pursuit — target dock keeps relocating via
   `gooseArrived(dockName, allDocks)` (deterministic hop choice), flavor

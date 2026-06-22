@@ -74,6 +74,17 @@ export class Character {
     return new Character(root, mixer, animations, opts);
   }
 
+  /** Free this character's cloned materials (geometry is shared — leave it). */
+  dispose() {
+    this.mixer.stopAllAction();
+    this.root.traverse((o) => {
+      const mesh = o as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+      for (const m of mats) m?.dispose?.();
+    });
+  }
+
   play(name: string, fade = 0.3) {
     if (name === this.current) return;
     const next = this.actions.get(name);
