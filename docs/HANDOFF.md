@@ -1,9 +1,50 @@
 # SPACE XXXX — State of the Universe (handoff)
 
-*Last updated: June 2026 (visual overhaul). Everything below is
+*Last updated: June 2026 (the Overseer content pack). Everything below is
 implemented, committed, and verified in-browser unless marked otherwise.*
 
-## Latest session: visual overhaul — palette, alien cast, screens, HUD, props (Opus 4.8)
+## Latest session: mystery, boss, secret weapons, levels — "THE OVERSEER" (Opus 4.8)
+
+A full gameplay-content pack: a per-sector mystery that escalates into a
+surprise boss fight, drops a secret weapon, and feeds a new progression
+system. All one coherent loop, all in flight mode, all verified in-browser.
+
+**LEVELS — Ministry Clearance (XP/rank).** `PlayerState.xp` (persisted) drives
+six ranks via `rankOf()` in `economy.ts` (PROBATIONARY NUISANCE → HONORARY
+VOID). MERIT is earned from drone kills (+12), salvage (+3), glyphs (+25),
+mission payouts (+reward/4), and the boss (+150). `addXp()` in `main.ts`
+announces promotions with a banner; the HUD status line shows
+`CLEARANCE LVL n · TITLE · MERIT x/y`.
+
+**MYSTERY — glyph fragments.** Each sector scatters three glowing GLYPH
+FRAGMENTS near the derelict, wreck, and monolith (`buildGlyphs()` in
+`main.ts`, meshes parented to `sector.root` with **fresh geometry per sector**
+so `setSector`'s disposal doesn't free a shared buffer). Collected by flying
+within 16m. The monolith's guide text seeds the hunt. State resets per sector.
+
+**SURPRISE BOSS — THE OVERSEER.** Collecting the 3rd glyph calls
+`awakenOverseer()`: the monolith blazes (emissive pulse) and a gold boss
+ambushes you 80m off the nose. Implemented in `combat.ts` as a scaled
+(`BOSS_SCALE 4.2`), 26-HP drone with a wider standoff ring and three-bolt
+spread fire (16 dmg each). New `spawnBoss()`, `bossAlive`/`bossHpFrac`
+getters, `onBossDown` event; hitscan/projectile hit-tests include the boss.
+HUD gains a top-centre boss health bar (`setBossBar`).
+
+**SECRET WEAPONS.** Two, both un-buyable (`SECRET_WEAPONS` in `combat.ts`).
+Beating the Overseer drops an armament cache (fly into it → IMPROBABILITY
+LANCE, hitscan, 6 dmg, 0.4s cd, 320m). Reaching HONORARY VOID auto-grants the
+SINGULARITY MORTAR (projectile, 5 dmg). They slot into the existing
+WEAPONS/Q-swap system automatically.
+
+**Verified in-browser** (via `__game` hooks: `awaken`, `collectGlyphs`,
+`addXp`, `glyphs`): boss spawns + bar shows + deals lethal damage; kill →
++150 XP, +500¢, promotion; cache → Lance unlock + auto-select; max rank →
+Mortar grant. No console errors. TypeScript clean, 12/12 tests.
+NOTE: the new state persists in `localStorage` (`player-state.xp`/`weapons`).
+Gotcha confirmed: a shared glyph geometry would be disposed by `setSector`
+— always build per-sector pickup geometry fresh.
+
+## Previous session: visual overhaul — palette, alien cast, screens, HUD, props (Opus 4.8)
 
 Full visual pass to shift from sparse dark cyber-decay to vibrant, character-forward, screen-rich space game. Reference: 5 AAA screenshots (neons, dense alien populations, rich UIs, screen-heavy environments, comedy props).
 

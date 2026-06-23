@@ -582,14 +582,17 @@ export function buildSector(world: World, seed: number): Sector {
 
   // --- the monolith: tall, black, smug
   const monoPos = new THREE.Vector3((rnd() - 0.5) * 300, -(60 + rnd() * 60), -300 - rnd() * 200);
+  const monoGuide = 'Ratio 1:4:9. THREE GLYPH FRAGMENTS drift among the wrecks; gather them and it wakes. You may regret this.';
   const mono = new THREE.Mesh(
     new THREE.BoxGeometry(4, 36, 9),
-    new THREE.MeshLambertMaterial({ color: 0x0a0a12 })
+    // standard material with emissive so the awakening can blaze (see main.ts)
+    new THREE.MeshStandardMaterial({ color: 0x0a0a12, emissive: 0xffd23e, emissiveIntensity: 0 })
   );
+  mono.name = 'monolith-mesh';
   mono.position.copy(monoPos);
   mono.rotation.y = rnd() * Math.PI;
   mono.userData.guideTitle = 'THE MONOLITH';
-  mono.userData.guideText = 'Ratio 1:4:9. It is not transmitting. It is, however, judging.';
+  mono.userData.guideText = monoGuide;
   scene.add(mono);
   float(mono, 0.9, 0.02);
   const monoRim = new THREE.PointLight(0x9fd8ff, 30, 90, 1.5);
@@ -600,7 +603,7 @@ export function buildSector(world: World, seed: number): Sector {
     kind: 'monolith',
     position: monoPos,
     guideTitle: 'THE MONOLITH',
-    guideText: 'Ratio 1:4:9. It is not transmitting. It is, however, judging.',
+    guideText: monoGuide,
   });
 
   // --- planets: enormous, indifferent, mostly harmless

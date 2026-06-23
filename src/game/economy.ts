@@ -19,6 +19,41 @@ export const COMMODITIES: Commodity[] = [
 
 export const CARGO_CAPACITY = 12;
 
+// --- Ministry Clearance: the closest thing this bureaucracy has to "levels".
+// XP is "MERIT" — accrued by being useful, violent, or merely present. Each
+// threshold grants a grander, more meaningless title.
+export const RANKS = [
+  { xp: 0,    title: 'PROBATIONARY NUISANCE' },
+  { xp: 60,   title: 'LICENSED MEDDLER' },
+  { xp: 180,  title: 'SECTOR IRRITANT (2ND CLASS)' },
+  { xp: 400,  title: 'BEARER OF MANY FORMS' },
+  { xp: 750,  title: 'PLENIPOTENTIARY OF SMALL CONSEQUENCE' },
+  { xp: 1300, title: 'HONORARY VOID' },
+];
+
+export interface Rank {
+  level: number;       // 1-based
+  title: string;
+  xpInto: number;      // merit accumulated past this rank's floor
+  xpSpan: number;      // merit needed to reach the next rank (Infinity at cap)
+  capped: boolean;     // already at the highest rank
+}
+
+export function rankOf(xp: number): Rank {
+  let i = 0;
+  for (let k = 0; k < RANKS.length; k++) if (xp >= RANKS[k].xp) i = k;
+  const capped = i >= RANKS.length - 1;
+  const floor = RANKS[i].xp;
+  const ceil = capped ? Infinity : RANKS[i + 1].xp;
+  return {
+    level: i + 1,
+    title: RANKS[i].title,
+    xpInto: xp - floor,
+    xpSpan: capped ? Infinity : ceil - floor,
+    capped,
+  };
+}
+
 export interface MarketListing {
   commodity: Commodity;
   buy: number;  // what the market charges you
@@ -43,10 +78,14 @@ export class PlayerState {
   credits = 100;
   hull = 100;
   engineLevel = 1;
+  /** Lifetime MERIT — drives Ministry Clearance (see rankOf). Persists. */
+  xp = 0;
   cargo = new Map<string, number>();
   /** Owned weapon ids, in WEAPONS order. Everyone starts with the blaster. */
   weapons: string[] = ['blaster'];
   weaponIndex = 0;
+
+  get rank(): Rank { return rankOf(this.xp); }
 
   cargoCount(): number {
     let n = 0;
@@ -72,6 +111,7 @@ export class PlayerState {
     localStorage.setItem('player-state', JSON.stringify({
       credits: this.credits,
       engineLevel: this.engineLevel,
+      xp: this.xp,
       cargo: [...this.cargo.entries()],
       weapons: this.weapons,
       weaponIndex: this.weaponIndex,
@@ -85,6 +125,7 @@ export class PlayerState {
       const s = JSON.parse(raw);
       this.credits = s.credits ?? 100;
       this.engineLevel = s.engineLevel ?? 1;
+      this.xp = s.xp ?? 0;
       this.cargo = new Map(s.cargo ?? []);
       this.weapons = s.weapons?.length ? s.weapons : ['blaster'];
       // clamp index into the owned list — a stale/short save must not select air

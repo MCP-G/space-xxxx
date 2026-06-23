@@ -356,16 +356,18 @@ function leavePlanet() {
 
 // --- salvage + combat
 const combat = new CombatSystem(world.scene, {
-  onShot: (w) => (w.id === 'pulse' ? audio.pulse() : audio.zap()),
+  onShot: (w) => (w.id === 'pulse' || w.id === 'mortar' ? audio.pulse() : audio.zap()),
   onDroneDown: (pos) => {
     audio.boom();
     pipeline.triggerGlitch(0.7);
     if (player.add('scrap', 2)) hud.say('DRONE DISASSEMBLED. 2 SCRAP BEAMED ABOARD, NO QUESTIONS.', 3);
     else hud.say('DRONE DISASSEMBLED. SCRAP LOST TO THE VOID (CARGO FULL).', 3);
+    addXp(12);
     player.save();
     if (missions.active?.kind === 'clear' && missions.advance()) missionPayout();
     void pos;
   },
+  onBossDown: (pos) => { defeatOverseer(pos); },
   onPlayerHit: (dmg) => {
     if (cine.active) return; // the camera crew has plot armor
     player.hull -= dmg;
@@ -400,6 +402,7 @@ const salvageInteract = interactions.add({
     if (!player.add('scrap')) { hud.say('CARGO FULL. PHYSICS SENDS ITS REGARDS.', 2); return; }
     item.taken = true;
     item.mesh.visible = false;
+    addXp(3);
     player.save();
     audio.footstep();
     hud.say('+1 SCRAP (PROVENANCE: DUBIOUS)', 2);
@@ -420,6 +423,145 @@ const logInteract = interactions.add({
   },
 });
 
+// ============================================================================
+// MINISTRY CLEARANCE — the progression "levels" (XP/rank/merit)
+// ============================================================================
+/** Award MERIT, persist, and announce any promotion. The Ministry insists. */
+function addXp(n: number) {
+  if (n <= 0) return;
+  const before = player.rank.level;
+  player.xp += n;
+  player.save();
+  const after = player.rank;
+  if (after.level > before) {
+    audio.boom();
+    pipeline.triggerGlitch(0.6);
+    hud.flashBanner(`CLEARANCE LVL ${after.level}`, `PROMOTED TO ${after.title}`, '#7fffd4');
+    // the highest clearance comes with a parting gift nobody requested
+    if (after.capped && !player.weapons.includes('mortar')) {
+      player.weapons.push('mortar');
+      player.save();
+      hud.say('AUTOMATED GRANT: SINGULARITY MORTAR ISSUED. PAPERWORK PENDING FOREVER.', 7);
+    }
+  }
+}
+
+// ============================================================================
+// THE MYSTERY — glyph fragments → the monolith wakes → THE OVERSEER → the Lance
+// ============================================================================
+interface Glyph { mesh: THREE.Mesh; collected: boolean; site: string; spin: number; }
+let glyphs: Glyph[] = [];
+let glyphsFound = 0;
+let monolithAwake = false;
+let weaponCache: THREE.Mesh | null = null;
+let monolithMesh: THREE.Object3D | null = null;
+
+/** Scatter three glyph fragments near the sector's ancient sites. */
+function buildGlyphs() {
+  glyphs = [];
+  glyphsFound = 0;
+  monolithAwake = false;
+  weaponCache = null;
+  monolithMesh = sector.root.getObjectByName('monolith-mesh') ?? null;
+  const sites: { kind: string; tint: number }[] = [
+    { kind: 'derelict', tint: 0x44ff88 },
+    { kind: 'wreck', tint: 0xff4422 },
+    { kind: 'monolith', tint: 0xffd23e },
+  ];
+  for (const site of sites) {
+    const poi = sector.pois.find((p) => p.kind === site.kind);
+    if (!poi) continue;
+    // float the glyph in open space just off the site, away from origin/clutter
+    const off = poi.position.clone().normalize().multiplyScalar(-1); // toward open space
+    const pos = poi.position.clone()
+      .addScaledVector(off, 22).add(new THREE.Vector3(0, 16, 0));
+    const mat = new THREE.MeshBasicMaterial({ color: site.tint });
+    // fresh geometry per sector — setSector disposes sector.root, so a shared
+    // geometry would be freed out from under the next sector's glyphs
+    const mesh = new THREE.Mesh(new THREE.OctahedronGeometry(2.2, 0), mat);
+    mesh.position.copy(pos);
+    mesh.userData.guideTitle = 'GLYPH FRAGMENT';
+    mesh.userData.guideText = 'One of three. Fly into it. The monolith has been waiting an embarrassingly long time.';
+    sector.root.add(mesh);
+    // a soft halo so it reads from distance
+    const halo = new THREE.Mesh(
+      new THREE.SphereGeometry(3.4, 12, 10),
+      new THREE.MeshBasicMaterial({ color: site.tint, transparent: true, opacity: 0.16 })
+    );
+    mesh.add(halo);
+    glyphs.push({ mesh, collected: false, site: poi.name, spin: 0.6 + Math.random() * 0.5 });
+  }
+}
+
+/** Picked up a glyph in flight. Three of them wakes the Overseer. */
+function collectGlyph(g: Glyph) {
+  g.collected = true;
+  g.mesh.visible = false;
+  glyphsFound++;
+  audio.navPing(1);
+  pipeline.triggerGlitch(0.4);
+  addXp(25);
+  if (glyphsFound < 3) {
+    hud.flashBanner(`GLYPH ${glyphsFound}/3`, 'THE MONOLITH STIRS. SOMETHING IS COUNTING DOWN.', '#7fffd4');
+  } else {
+    awakenOverseer();
+  }
+}
+
+/** All three glyphs gathered: the monolith blazes and the boss ambushes you. */
+function awakenOverseer() {
+  if (monolithAwake) return;
+  monolithAwake = true;
+  audio.stinger('undock');
+  audio.glitchBurst();
+  pipeline.triggerGlitch(1);
+  hud.flashBanner('THE OVERSEER AWAKENS', 'IT HAS REVIEWED YOUR FILE. IT HAS NOTES.', '#ff2e88');
+  // spawn the boss ahead of the ship so the player sees it arrive
+  const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(ship.quaternion);
+  const where = ship.position.clone().addScaledVector(fwd, 80).add(new THREE.Vector3(0, 12, 0));
+  combat.spawnBoss(where);
+}
+
+/** The Overseer is down. Drop the Improbability Lance as a flight pickup. */
+function defeatOverseer(pos: THREE.Vector3) {
+  audio.boom();
+  pipeline.triggerGlitch(1);
+  addXp(150);
+  player.credits += 500;
+  player.save();
+  hud.flashBanner('THE OVERSEER FALLS', '+500¢ · ITS ARMAMENT DRIFTS FREE — GO AND TAKE IT.', '#ffd23e');
+  const mat = new THREE.MeshBasicMaterial({ color: 0xffd23e });
+  const cache = new THREE.Mesh(new THREE.IcosahedronGeometry(2.6, 0), mat);
+  cache.position.copy(pos);
+  cache.userData.guideTitle = 'OVERSEER ARMAMENT';
+  cache.userData.guideText = 'Still warm. Still ticking. Probably fine. Fly into it.';
+  const halo = new THREE.Mesh(
+    new THREE.SphereGeometry(4, 12, 10),
+    new THREE.MeshBasicMaterial({ color: 0xffd23e, transparent: true, opacity: 0.2 })
+  );
+  cache.add(halo);
+  sector.root.add(cache);
+  weaponCache = cache;
+}
+
+/** Collected the cache: the secret weapon is yours forever. */
+function collectCache() {
+  if (!weaponCache) return;
+  sector.root.remove(weaponCache);
+  weaponCache = null;
+  audio.boom();
+  pipeline.triggerGlitch(0.8);
+  addXp(50);
+  if (!player.weapons.includes('lance')) {
+    player.weapons.push('lance');
+    player.weaponIndex = player.weapons.indexOf('lance');
+    player.save();
+    hud.flashBanner('IMPROBABILITY LANCE', 'A SECRET WEAPON. Q TO SELECT. PIERCES BUREAUCRACY AND HULLS ALIKE.', '#ffd23e');
+  } else {
+    hud.say('THE CACHE HELD A SPARE LANCE. YOU FILE IT UNDER "EXCESSIVE".', 5);
+  }
+}
+
 function populateSector() {
   combat.populate(sector);
   // salvage/ore comes pre-placed by the generator; meshes live in sector.root
@@ -435,6 +577,8 @@ function populateSector() {
     logInteract.position.copy(sector.logPos);
     logInteract.enabled = true;
   } else logInteract.enabled = false;
+  // the mystery resets per sector: three new glyphs, a sleeping monolith
+  buildGlyphs();
 }
 populateSector();
 
@@ -569,6 +713,7 @@ function missionPayout() {
   const m = missions.active!;
   const reward = missions.complete();
   player.credits += reward;
+  addXp(Math.round(reward / 4));
   player.save();
   audio.boom();
   pipeline.triggerGlitch(0.5);
@@ -769,6 +914,25 @@ function updateNav(dt: number) {
   }
 }
 
+/** Per-frame mystery: spin glyphs, collect on fly-by, pulse the woken monolith. */
+function updateMystery(dt: number, t: number) {
+  for (const g of glyphs) {
+    if (g.collected) continue;
+    g.mesh.rotation.y += g.spin * dt;
+    g.mesh.rotation.x += g.spin * 0.5 * dt;
+    if (mode === 'fly' && ship.position.distanceTo(g.mesh.position) < 16) collectGlyph(g);
+  }
+  if (weaponCache) {
+    weaponCache.rotation.y += 0.9 * dt;
+    if (mode === 'fly' && ship.position.distanceTo(weaponCache.position) < 18) collectCache();
+  }
+  if (monolithAwake && monolithMesh) {
+    const m = (monolithMesh as THREE.Mesh).material as THREE.MeshStandardMaterial;
+    if (m && 'emissiveIntensity' in m) m.emissiveIntensity = 0.9 + Math.sin(t * 6) * 0.7;
+  }
+  hud.setBossBar(combat.bossAlive ? combat.bossHpFrac : null);
+}
+
 // --- E key
 document.addEventListener('keydown', (e) => {
   if (e.code !== 'KeyE') return;
@@ -898,6 +1062,11 @@ Object.assign(window as any, {
     sector: () => sector,
     dockSpots: () => dockSpots,
     mode: () => mode,
+    // mystery/boss/progression hooks (scripted verification + debugging)
+    addXp: (n: number) => addXp(n),
+    glyphs: () => ({ found: glyphsFound, awake: monolithAwake, cache: !!weaponCache }),
+    awaken: () => awakenOverseer(),
+    collectGlyphs: () => { for (const g of glyphs) if (!g.collected) collectGlyph(g); },
     /** Advance the simulation synchronously (testing in throttled tabs). */
     step: (ms = 100) => {
       let t = last;
@@ -1015,6 +1184,8 @@ function frame(now: number) {
     ship.setThrustVisual(flight.thrusting ? 0.5 + (flight.speed / 90) * 0.5 : 0, dt);
   }
 
+  updateMystery(dt, t);
+
   // combat + danger music; a roof overhead means bolts can't reach you
   const target = mode === 'walk' ? walk.camera.position : ship.position;
   const targetRadius = mode === 'walk' ? 1.2 : 3.5;
@@ -1044,11 +1215,22 @@ function frame(now: number) {
   }
 
   // status line
+  const rk = player.rank;
+  const meritBar = rk.capped ? 'MAX' : `${rk.xpInto}/${rk.xpSpan}`;
+  const mysteryLine = combat.bossAlive
+    ? '\nTHE OVERSEER IS HERE. THIS WAS ARGUABLY YOUR IDEA.'
+    : weaponCache
+      ? '\nARMAMENT ADRIFT — COLLECT IT.'
+      : monolithAwake
+        ? ''
+        : glyphsFound > 0 ? `\nGLYPHS: ${glyphsFound}/3 (the monolith is counting)` : '';
   hud.setStatus(
     `CREDITS ${player.credits}¢ · CARGO ${player.cargoCount()}/${CARGO_CAPACITY}\n` +
-    `HULL ${player.hull}% · ENGINE MK.${player.engineLevel} · ${currentWeapon().name}` +
+    `HULL ${player.hull}% · ENGINE MK.${player.engineLevel} · ${currentWeapon().name}\n` +
+    `CLEARANCE LVL ${rk.level} · ${rk.title} · MERIT ${meritBar}` +
     (combat.aliveCount > 0 ? `\nDRONES: ${combat.aliveCount} (displeased)` : '') +
-    (missions.statusLine() ? `\n${missions.statusLine()}` : '')
+    (missions.statusLine() ? `\n${missions.statusLine()}` : '') +
+    mysteryLine
   );
 
   pipeline.render(world.scene, walk.camera, dt, t);

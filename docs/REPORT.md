@@ -184,6 +184,24 @@ NPC portrait bar (walk mode, pixel-art faces), Ministry invoice death flash.
 + hover tray; planet terraces: alien plants + snack bowl + banner poles; 26→36
 slogans, 28→36 graffiti tags, 12→25 terminal lines, 8→12 derelict logs.
 
+### THE OVERSEER — mystery, boss, secret weapons, levels (Opus 4.8)
+Owner asked to "add mystery, quests, secret weapons, surprise bosses, levels."
+Delivered as one interlocking flight-mode loop rather than five bolt-ons.
+**Levels** = Ministry Clearance: persisted `xp` (MERIT) → six Adams-flavoured
+ranks (`rankOf` in economy.ts), earned from kills/salvage/glyphs/missions/boss,
+surfaced on the HUD and announced by promotion banners. **Mystery** = three
+glowing GLYPH FRAGMENTS hidden each sector by the derelict, wreck, and monolith
+(`buildGlyphs`), collected by fly-by, hinted in the monolith's lore — the
+"quest" thread. **Surprise boss** = THE OVERSEER, a 4.2×-scale gold drone with
+26 HP and three-bolt spread volleys that *ambushes* you the instant the third
+glyph lands (`awakenOverseer` → `combat.spawnBoss`); the monolith blazes and a
+boss health bar drops in. **Secret weapons** = the un-buyable IMPROBABILITY
+LANCE (boss-cache drop) and SINGULARITY MORTAR (auto-granted at HONORARY VOID),
+both slotting into the existing Q-swap arsenal. Verified the whole chain in the
+browser through `__game` debug hooks. The one real trap: pickup geometry must
+be built fresh per sector — a shared buffer gets disposed by `setSector` and
+the next sector's glyphs render broken.
+
 ## Engineering lessons worth keeping
 
 1. **Tone.js `bpm.rampTo` hard-freezes the tab.** Set `bpm.value`

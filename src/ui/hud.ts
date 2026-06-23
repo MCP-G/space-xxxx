@@ -176,6 +176,46 @@ export class Hud {
     this.status.textContent = text;
   }
 
+  // --- boss health bar (top-centre, only while the Overseer lives)
+  private bossBar = el('boss-bar', `position:absolute;top:54px;left:50%;transform:translateX(-50%);width:340px;display:none;pointer-events:none;text-align:center;z-index:4;`);
+  private bossBarInner = (() => {
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'font-family:monospace;color:#ffd23e;font-size:12px;text-shadow:0 0 8px #ffd23e88;margin-bottom:3px;letter-spacing:2px;';
+    wrap.id = 'boss-label';
+    this.bossBar.appendChild(wrap);
+    const track = document.createElement('div');
+    track.style.cssText = 'height:9px;border:1px solid #ffd23e88;background:#1a0a00cc;overflow:hidden;';
+    const fill = document.createElement('div');
+    fill.id = 'boss-fill';
+    fill.style.cssText = 'height:100%;width:100%;background:linear-gradient(90deg,#ff6622,#ffd23e);transition:width .15s linear;';
+    track.appendChild(fill);
+    this.bossBar.appendChild(track);
+    return fill;
+  })();
+
+  /** Show/update the boss bar; pass null to hide it. */
+  setBossBar(frac: number | null, label = 'THE OVERSEER') {
+    if (frac === null) { this.bossBar.style.display = 'none'; return; }
+    this.bossBar.style.display = 'block';
+    (this.bossBar.querySelector('#boss-label') as HTMLDivElement).textContent = label;
+    this.bossBarInner.style.width = `${Math.max(0, Math.min(1, frac)) * 100}%`;
+  }
+
+  // --- big transient banner: level-ups, boss warnings, weapon unlocks
+  private banner = el('banner', `position:absolute;top:30%;left:50%;transform:translateX(-50%);display:none;flex-direction:column;align-items:center;font-family:monospace;text-align:center;pointer-events:none;z-index:5;`);
+  private bannerTimer = 0;
+
+  /** Centre-screen announcement that fades after a few seconds. */
+  flashBanner(title: string, sub = '', color = '#ffd23e') {
+    this.banner.innerHTML =
+      `<div style="font-size:30px;color:${color};text-shadow:0 0 22px ${color};letter-spacing:3px;">${title}</div>` +
+      (sub ? `<div style="font-size:13px;color:#b8b8d8;margin-top:8px;">${sub}</div>` : '');
+    this.banner.style.display = 'flex';
+    this.banner.style.opacity = '1';
+    clearTimeout(this.bannerTimer);
+    this.bannerTimer = window.setTimeout(() => { this.banner.style.display = 'none'; }, 3800);
+  }
+
   private death = el('death', `position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;background:#3a002288;font-family:monospace;color:#ff2e88;text-shadow:0 0 18px #ff2e88;text-align:center;pointer-events:none;z-index:5;`);
   private barTop = el('bar-top', `position:absolute;top:0;left:0;right:0;height:0;background:#000;transition:height .5s ease;z-index:4;pointer-events:none;`);
   private barBottom = el('bar-bottom', `position:absolute;bottom:0;left:0;right:0;height:0;background:#000;transition:height .5s ease;z-index:4;pointer-events:none;`);
