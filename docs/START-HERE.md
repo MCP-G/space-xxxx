@@ -6,17 +6,23 @@ context**. Companion docs: [REPORT.md](REPORT.md) (full history),
 [AAA-PLAN.md](AAA-PLAN.md) (forward roadmap), [HANDOFF.md](HANDOFF.md)
 (session-by-session log). This file supersedes them as your entry point.
 
+*Current as of: the landable-planets + full-QA pass (26 commits). The game
+is shippable: production build green, 12/12 tests, no console errors, no
+known leaks.*
+
 ---
 
 ## 1. What this is
 
 A first-person 3D space game, Douglas-Adams-funny, cyber-decay aesthetic.
 You walk a decaying space station, board a freighter you can physically
-walk inside, sit down, fly out into a procedurally generated sector, dock
-at outposts, trade / mine / salvage / fight drones, take contracts
-(including deliberate wild-goose chases), and — once a wallet is wired —
-claim sectors as on-chain deeds. Three.js + TypeScript + Vite + Tone.js
-(procedural synth score) + Solidity (Base L2, not yet deployed).
+walk inside, sit in a glowing pilot seat, fly out into a procedurally
+generated sector, dock at outposts, **land on planets** (each a poetry
+world of alien Shakespeares with its own classical score, dialogue, and a
+shop), trade / mine / salvage / fight drones, take contracts (including
+deliberate wild-goose chases), and — once a wallet is wired — claim sectors
+as on-chain deeds. Three.js + TypeScript + Vite + Tone.js (procedural synth
+score) + Solidity (Base L2, not yet deployed).
 
 Repo: https://github.com/MCP-G/space-xxxx — push there when done.
 
@@ -40,10 +46,13 @@ URL params: `?res=720` pins internal resolution (disables auto-scaler);
 
 ## 3. The mental model (how it fits together)
 
-`src/main.ts` (~930 lines) is the orchestrator: it owns the **mode
+`src/main.ts` (~990 lines) is the orchestrator: it owns the **mode
 machine** (`walk` / `fly` / cinematic), all interactions, docking, the
-nav HUD, the guide raycaster, and the frame loop. Everything else is a
-module it wires together:
+nav HUD, the guide raycaster, the **planet lifecycle** (`enterPlanet` /
+`leavePlanet`: spawn bards + open the poetry shop + start planet music on
+landing; despawn + dispose + stop music on takeoff — hooked into
+finalizeDock / beginFlight / setSector), and the frame loop. Everything
+else is a module it wires together:
 
 | Concern | File | Notes |
 |---|---|---|
@@ -52,11 +61,11 @@ module it wires together:
 | Flight | `src/player/FlightController.ts` | Arcade-newtonian; `power` = engine upgrades. |
 | The ship | `src/ship/Ship.ts` | Walkable interior + colliders derived from transform. Exterior is a downloaded GLB hull (hidden in pilot view). Glass canopy + thruster flares. |
 | Station geometry | `src/world/station.ts` | Hangar/corridor/bar, palette, NPC spawn defs, terminal lines. |
-| Sector procgen | `src/world/sector.ts` (~680 lines) | Deterministic from a seed (`sfc32`). Asteroids+mine, derelict+interior, beacon, wreck field, nebula, monolith, **planets**. Plus salvage, floaters, dock pillars, decay, windows. |
+| Sector procgen | `src/world/sector.ts` (~760 lines) | Deterministic from a seed (`sfc32`). Asteroids+mine, derelict+interior, beacon, wreck field, nebula, monolith, **landable planets** (each with a terrace `dock` + `culture`: poets, shopName, shopId≥100, musicSeed). Plus salvage, floaters, dock pillars, decay, windows. |
 | Combat | `src/game/combat.ts` | Weapons (hitscan blaster / projectile pulse), tracers/sparks/explosions, drone AI (standoff ring, juke-on-hit), cover detection. |
 | Economy | `src/game/economy.ts` | Commodities, seeded per-market prices, `PlayerState` (localStorage). |
 | Missions | `src/game/missions.ts` | Contracts board: deliver / clear / salvage / **goose** (multi-hop). |
-| Audio | `src/audio/AudioDirector.ts` | Adaptive synth: station/flight/danger modes + continuous intensity; synthesized SFX + dock/undock stingers in A. |
+| Audio | `src/audio/AudioDirector.ts` | Adaptive synth: station/flight/danger modes + continuous intensity; synthesized SFX + dock/undock stingers in A; `planetMusic(seed)` / `stopPlanetMusic()` — per-planet seeded classical (timer-driven, NOT Transport-coupled, ducks the groove). |
 | Cinematics | `src/game/cinematic.ts` | Letterboxed orbit camera for dock/undock. |
 | Chain | `src/chain/ministry.ts` + `contracts/*.sol` | viem + Base Sepolia; **not deployed** (needs a funded key). Guest mode works without it. |
 | UI overlay | `src/ui/hud.ts` | DOM overlay: prompts, Guide popups, market/board panel, nav chevron, letterbox, death flash. |
@@ -75,8 +84,10 @@ content through it, not with ad-hoc geometry.**
   `manifest.json` (asset source/license/budget ledger). `registry.spawn(id,
   overrides)` for procedural prefabs, `spawnModel(id)` for GLB ones.
 - `lib/actors/Character.ts` — animated NPC: clip state machine, waypoint
-  patrols, greet-the-player turns. The whole cast is tinted clones of one
-  CC0 animated mannequin.
+  patrols, greet-the-player turns. The whole cast (station + planet bards)
+  is tinted clones of one CC0 animated mannequin. **Call `.dispose()` when
+  removing a dynamically-spawned character** (it frees the per-instance
+  cloned materials; geometry is shared, so it's left alone).
 - `lib/world/Decay.ts` — the cyber-decay dressing system. Feed it a
   collider list; it classifies walls/floors and litters them with pooled
   canvas-texture posters, graffiti, grime, and garbage prefabs.
@@ -110,17 +121,33 @@ License recorded in `public/models/LICENSE.txt` and the registry manifest.
 7. **No vertex-snap shader anymore** — `applyVertexSnap` is a deliberate
    no-op (it shimmered small props at hi-res). The pixel feel is 100% in
    the post chain. Don't resurrect it without a large-objects-only guard.
+8. **Dynamically-spawned `Character`s clone their materials** (for tinting),
+   so they leak unless you call `.dispose()` on removal. The planet bards do
+   this in `leavePlanet`; follow that pattern for any spawn/despawn actor.
+   Verify leak fixes with `g.pipeline.renderer.info.memory` across cycles.
 
 ## 5. Verified-working state (as of this handoff)
 
-Just completed a two-auditor pass + live playtest. Confirmed working:
-trade round-trips with cargo cap / credit floor, all 5 docks, salvage,
-mining, kiosk market, ship's log, all 4 contract types (deliver/clear/
-salvage/goose) + abandon, death+respawn, Ministry filing (guest mode),
-arms crate, engineer upgrade, dock/undock cinematics, planets, canopy.
-Fixed this session: GPU texture leak on sector regen, weaponIndex
-persistence, goose empty-options guard, cinematic-interrupt soft-lock.
-**12/12 tests pass, no console errors, no flicker.**
+Just completed a full QA sweep (production build + 12 tests + exhaustive
+live playtest + two audit agents). Confirmed working end-to-end with zero
+console errors: trade round-trips (cargo cap / credit floor), **all 7 docks
+including 2 landable planets**, salvage, mining, kiosk + planet shops,
+ship's log, all 4 contract types (deliver/clear/salvage/goose) + abandon,
+death+respawn, Ministry filing (guest mode), arms crate, engineer upgrade,
+dock/undock cinematics, **planet bards + dialogue + per-planet classical
+music**, glowing pilot seat, canopy, `setSector` regen (clean, no
+soft-lock). Recent fixes: GPU texture leak on regen, weaponIndex
+persistence, goose empty-options guard, cinematic-interrupt soft-lock, and
+the **bard cloned-material leak** (verified leak-free: 5 planet
+land/takeoff cycles hold textures 97→97 and geometries 539→539 stable).
+**12/12 tests pass, no console errors, no flicker, no known leaks.**
+
+### How to play (the loop)
+Land at Port Improbable → walk to the glowing seat → **E** to fly → press
+**T** to cycle a nav target (stations, derelict, mine, beacon, wreck, or a
+**planet**) → fly to the chevron, slow under 20 m/s, **E** to dock → on a
+planet, talk to the bards (**E**), browse the shop, hear its score → walk
+back to the seat → **E** to take off.
 
 ## 6. What to do next (prioritized)
 
@@ -138,6 +165,11 @@ persistence, goose empty-options guard, cinematic-interrupt soft-lock.
    win (registry manifest "wanted" list).
 4. **Async multiplayer indexer**: needs a hosting decision (Cloudflare
    Worker + KV suggested). Other players appear as traces, never avatars.
+5. **Planet polish** (freshest feature, easy wins): a planet-facing light
+   for brighter, dramatic landings; more bard variety / distinct meshes;
+   planet-specific shop wares (poetry sells cheap on poetry worlds);
+   a few bards could patrol or recite on a loop. All build on the existing
+   `enterPlanet` + `Character` + market plumbing.
 
 ## 7. Known minor warts (not bugs, judgment calls)
 
