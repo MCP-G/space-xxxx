@@ -38,6 +38,14 @@ const SLOGANS = [
   ['BE THE DRONE YOU FEAR', 'wellness directive 12'],
   ['QUEUE HERE FOR HOPE', 'queue relocated. ask the queue.'],
   ['THE GOOSE IS REAL', 'the chase, however, is sponsored'],
+  ['SNACK RESPONSIBLY', 'contents: unknown. consequences: known.'],
+  ['THE FORM LOVES YOU', 'form 12-C does not reciprocate'],
+  ['THIS AREA CONDEMNED', 'form 12-C required to read this sign'],
+  ['EXIST WITHIN LIMITS', 'limits available on request. request pending.'],
+  ['FEEDBACK IS FUEL', 'fuel is not available'],
+  ['MAINTENANCE: SOON™', 'definition of soon: classified'],
+  ['HEROISM IS PAPERWORK', 'form 88-B applies to all feats'],
+  ['THE VOID IS COMPLIANT', 'it filed. it was rejected. it persists.'],
 ] as const;
 
 const TAGS = [
@@ -48,6 +56,9 @@ const TAGS = [
   '404 EVERYTHING', 'THE QUEUE IS A LIE', '<eat_static/>', 'GLITCH IS TRUTH',
   'HONK IF U COMPILE', 'B♭ 4EVER', 'MY OTHER BODY IS A SHIP', 'VOID WAS HERE',
   'DECK 9 LIVES', 'PAY UR TAB', 'GOOSE GANG', 'I SAW THE SIGNAL. IT WINKED.',
+  '≋≋≋ ALIEN SCRIPT ≋≋≋', '彡VOID RESONANCE彡', 'ꜛ ERROR ꜛ SUBLIME ꜛ',
+  '👾 FIRST CONTACT 👾', '⚡ZAPPED THIS WALL⚡', '◈ SECTOR 7 TRUTH ◈',
+  'THE SNACKS WERE A LIE', 'HONK HONK (GOOSE CODE)',
 ] as const;
 
 const POSTER_INKS = ['#ff2e88', '#7fffd4', '#ffd23e', '#9fd8ff', '#c0c0e8'];
@@ -203,6 +214,56 @@ const LITTER_BUILDERS: ((rnd: () => number) => THREE.Object3D)[] = [
     );
     m.rotation.y = rnd() * 6;
     return m;
+  },
+  // warning cone (orange, hard to miss — that's the point)
+  (_rnd) => {
+    const g = new THREE.Group();
+    const cone = new THREE.Mesh(
+      new THREE.ConeGeometry(0.09, 0.22, 8),
+      material('neon-orange', { emissiveIntensity: 0.4 })
+    );
+    cone.position.y = 0.11;
+    const base = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.11, 0.11, 0.02, 8),
+      material('deck-plate', { color: 0xff6600 })
+    );
+    g.add(cone, base);
+    const m = g as unknown as THREE.Object3D;
+    (m as any).userData = { guideTitle: 'WARNING CONE', guideText: 'Warns about something. Nobody remembers what.' };
+    return m;
+  },
+  // alien plant: blob on a stick, very purple
+  (rnd) => {
+    const g = new THREE.Group();
+    const stem = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.015, 0.02, 0.3 + rnd() * 0.2, 5),
+      material('alien-skin-green')
+    );
+    const blob = new THREE.Mesh(
+      new THREE.SphereGeometry(0.07 + rnd() * 0.04, 7, 5),
+      material(rnd() > 0.5 ? 'alien-skin-green' : 'neon-purple', { roughness: 0.6, metalness: 0 })
+    );
+    blob.position.y = 0.22 + rnd() * 0.12;
+    g.add(stem, blob);
+    (g as any).userData = { guideTitle: 'ALIEN PLANT', guideText: 'Thriving. Judgementally.' };
+    return g;
+  },
+  // snack bowl: mysterious contents
+  (_rnd) => {
+    const g = new THREE.Group();
+    const bowl = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.08, 0.06, 0.04, 10),
+      material('deck-plate', { color: 0x8a8ac0 })
+    );
+    const contents = new THREE.Mesh(
+      new THREE.SphereGeometry(0.05, 7, 4),
+      material('neon-teal', { emissiveIntensity: 0.3 })
+    );
+    contents.scale.y = 0.4;
+    contents.position.y = 0.035;
+    g.add(bowl, contents);
+    (g as any).userData = { guideTitle: 'SNACK BOWL', guideText: 'Unknown. Consumed anyway.' };
+    return g;
   },
 ];
 

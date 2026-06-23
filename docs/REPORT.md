@@ -16,7 +16,7 @@ the first greybox corridor to the goose chase. Maintained alongside
 | Tests | 12 (procgen determinism + asset-library contract) |
 | 3D assets | 9 files, all CC0 Quaternius (2 ships, 5 humanoids, animated mannequin + clips) |
 | Animation clips | 46 (Universal Animation Library) |
-| Procedural content | 26 slogan posters · 28 graffiti tags · 19 terminal lines · 8 ship's-log entries · 12 planet names · 6 alien bards · 4 goose chases |
+| Procedural content | 36 slogan posters · 36 graffiti tags · 25 terminal lines · 12 ship's-log entries · 12 planet names · 6 alien bards · 4 goose chases |
 | Repo | https://github.com/MCP-G/space-xxxx |
 
 ## The pitch
@@ -163,6 +163,26 @@ goose completes, cinematic interrupt returns control). Also: `setSector`
 now refreshes board offers for the new sector, and the `__game` hook
 exposes `pipeline` for renderer probing. Wrote `docs/START-HERE.md` — a
 self-contained onboarding doc for a fresh model.
+
+### Visual overhaul — from greybox to vibrant (Opus 4.8)
+Owner shared 5 AAA reference screenshots (Outer Wilds / Mass Effect register:
+neons, dense alien populations, screen-heavy environments, comedy props) and
+requested a full visual redesign. 5 phases, all TypeScript-clean, 12/12 tests:
+**(1) Palette & Lighting** — 8 new `MaterialLibrary` presets (neon-teal/purple/
+orange/pink, panel-lit, hull-yellow, alien-skin-green/grey); 8 named station
+PointLights; POI signature colours (mine orange, derelict sickly-green, beacon
+cold-blue, wreck deep-red); per-planet coloured rim lights; planet emissive 0.5→0.9.
+**(2) Character Diversity** — `HeadShape` type (`sphere`/`elongated`/`squat`/`crystal`),
+`scale` opt on `CharacterOpts`; procedural head mesh attached to Head bone at spawn
+and freed in `dispose()`; 6→8 station NPCs; derelict lone survivor; planet bards
+use varied scale+headShape arrays. **(3) Screen Content** — new `ScreenTextures.ts`
+with 4 canvas generators (data feed, star map, pixel-art face, alert stripes);
+cockpit 1-screen dashboard becomes a 3×2 grid of 6 mini-screens. **(4) Rich HUD**
+— SPD gauge bars, 80×80 minimap canvas (top-right, colour-coded POI dots),
+NPC portrait bar (walk mode, pixel-art faces), Ministry invoice death flash.
+**(5) Prop Density** — station bar: ping-pong table + 2 arcades + 2 alien plants
++ hover tray; planet terraces: alien plants + snack bowl + banner poles; 26→36
+slogans, 28→36 graffiti tags, 12→25 terminal lines, 8→12 derelict logs.
 
 ## Engineering lessons worth keeping
 

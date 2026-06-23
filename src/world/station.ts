@@ -62,20 +62,36 @@ export function buildStation(): World {
   scene.fog = new THREE.Fog(0x05050c, 14, 400);
   const world: World = { scene, colliders: [], guideMeshes: [] };
 
-  // --- lighting
-  scene.add(new THREE.AmbientLight(0x9090c0, 1.0));
-  scene.add(new THREE.HemisphereLight(0x6060a0, 0x202030, 0.8));
-  const lights: [number, number, number, number, number, number][] = [
-    [PALETTE.accentA, 40, -5, 4.5, -10, 20],
-    [PALETTE.trim, 35, 5, 4.5, -13, 18],
-    [PALETTE.accentB, 12, 0, 2.8, 5, 12],
-    [PALETTE.accentA, 25, 0, 3.5, 14, 16],
-  ];
-  for (const [color, intensity, x, y, z, dist] of lights) {
-    const l = new THREE.PointLight(color, intensity, dist, 1.6);
-    l.position.set(x, y, z);
-    scene.add(l);
-  }
+  // --- lighting (vibrant neon scheme — blue floods in hangar, teal corridor strips, pink/amber bar)
+  scene.add(new THREE.AmbientLight(0x8090c8, 0.9));
+  scene.add(new THREE.HemisphereLight(0x5070b0, 0x201828, 0.7));
+  // hangar: cool blue floods + warm amber from the ship pad
+  const hangarFloodA = new THREE.PointLight(0x4488ff, 55, 24, 1.6);
+  hangarFloodA.position.set(-5, 5.5, -8);
+  scene.add(hangarFloodA);
+  const hangarFloodB = new THREE.PointLight(0x2266dd, 45, 20, 1.6);
+  hangarFloodB.position.set(5, 5.5, -10);
+  scene.add(hangarFloodB);
+  const padAmber = new THREE.PointLight(0xff9944, 30, 16, 1.6);
+  padAmber.position.set(0, 2.5, -5);
+  scene.add(padAmber);
+  // corridor: teal strip accents
+  const corrTeal = new THREE.PointLight(0x00cccc, 22, 14, 1.5);
+  corrTeal.position.set(0, 2.5, 4);
+  scene.add(corrTeal);
+  const corrTeal2 = new THREE.PointLight(0x00aaee, 18, 12, 1.5);
+  corrTeal2.position.set(0, 2.5, 8);
+  scene.add(corrTeal2);
+  // bar: amber back-bar + pink neon above sign + purple wash
+  const barAmber = new THREE.PointLight(0xff9944, 28, 14, 1.5);
+  barAmber.position.set(0, 3, 17);
+  scene.add(barAmber);
+  const barPink = new THREE.PointLight(0xff44aa, 35, 12, 1.5);
+  barPink.position.set(0, 3.8, 10.5);
+  scene.add(barPink);
+  const barPurple = new THREE.PointLight(0x9933ff, 20, 10, 1.5);
+  barPurple.position.set(-4, 2, 15);
+  scene.add(barPurple);
 
   // --- hangar: 16w x 6h x 16d centered at z=-8, OPEN at north (z=-16)
   box(world, 16, 0.5, 16, 0, -0.25, -8, PALETTE.floor, {
@@ -113,8 +129,8 @@ export function buildStation(): World {
   box(world, 0.5, 3, 10, -1.75, 1.5, 5, PALETTE.wall);
   box(world, 0.5, 3, 10, 1.75, 1.5, 5, PALETTE.wall);
   for (let z = 1; z < 10; z += 2) {
-    box(world, 0.1, 0.1, 1.2, -1.68, 1.5, z, PALETTE.trim, { collide: false, emissive: true });
-    box(world, 0.1, 0.1, 1.2, 1.68, 1.5, z, PALETTE.accentA, { collide: false, emissive: true });
+    box(world, 0.1, 0.1, 1.2, -1.68, 1.5, z, 0x00cccc, { collide: false, emissive: true });
+    box(world, 0.1, 0.1, 1.2, 1.68, 1.5, z, 0xaa44ff, { collide: false, emissive: true });
   }
 
   // --- bar room: 10w x 4h x 8d centered z=14
@@ -134,6 +150,46 @@ export function buildStation(): World {
     guide: ['MUNICIPAL TERMINAL', 'Property of the Ministry of Immutable Affairs. Filing backlog: 14,000 years.'],
   });
   box(world, 0.6, 0.5, 0.05, -3.5, 1.4, 17.28, PALETTE.trim, { collide: false, emissive: true });
+
+  // --- bar comedy props: the difference between a location and a place
+  // ping-pong table in the corner
+  box(world, 2.4, 0.08, 1.4, 4, 0.82, 12.5, 0x1155aa, { collide: false });
+  box(world, 0.04, 0.2, 1.4, 4, 0.96, 12.5, 0xffffff, { collide: false }); // net
+  // arcade machines against the east wall
+  box(world, 0.7, 1.8, 0.5, 4.7, 0.9, 13.5, 0x1a0a2a, {
+    guide: ['ARCADE: "MINISTRY SIMULATOR"', 'You file forms. The forms file back. 25¢.'],
+  });
+  box(world, 0.55, 0.6, 0.05, 4.7, 1.55, 13.26, 0x00ff88, { collide: false, emissive: true }); // screen
+  box(world, 0.7, 1.8, 0.5, 4.7, 0.9, 15.0, 0x0a1a2a, {
+    guide: ['ARCADE: "GOOSE HUNT"', 'Four hops minimum. Prize: disappointment.'],
+  });
+  box(world, 0.55, 0.6, 0.05, 4.7, 1.55, 14.76, 0xff2e88, { collide: false, emissive: true }); // screen
+  // alien plants flanking the bar entrance
+  for (const pz of [10.4, 10.6]) {
+    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 0.9, 6),
+      new THREE.MeshLambertMaterial({ color: 0x1a3a1a }));
+    stem.position.set(pz < 10.5 ? -3.5 : 3.5, 0.45, pz);
+    scene.add(stem);
+    const blob = new THREE.Mesh(new THREE.SphereGeometry(0.28, 8, 6),
+      new THREE.MeshLambertMaterial({ color: pz < 10.5 ? 0x44cc66 : 0xaa44ff }));
+    blob.position.set(pz < 10.5 ? -3.5 : 3.5, 1.1, pz);
+    blob.userData.guideTitle = 'ALIEN PLANT';
+    blob.userData.guideText = 'Sentient, allegedly. Its opinions are expressed via pollen.';
+    scene.add(blob);
+    world.guideMeshes.push(blob);
+  }
+  // hover serving tray near the bartender
+  const tray = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.04, 0.5),
+    new THREE.MeshLambertMaterial({ color: 0x8a8ac0 }));
+  tray.name = 'hover-tray';
+  tray.position.set(2.5, 1.3, 16.8);
+  scene.add(tray);
+  for (let i = 0; i < 3; i++) {
+    const drink = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.1, 6),
+      new THREE.MeshLambertMaterial({ color: [0x4aff9a, 0xff2e88, 0xffd23e][i] }));
+    drink.position.set(2.2 + i * 0.3, 1.38, 16.8);
+    scene.add(drink);
+  }
 
   // NPCs are downloaded GLB characters, loaded async by main (see NPC_SPAWNS)
 
@@ -259,22 +315,28 @@ export function buildStation(): World {
 /** The cast: animated mannequins (UAL clips), tinted per role. */
 export const NPC_SPAWNS = [
   {
-    tint: 0xff8c2e, clip: 'Fixing_Kneeling', x: 5.2, y: 0, z: -2.9, yaw: -0.66,
+    tint: 0xffd044, clip: 'Fixing_Kneeling', x: 5.2, y: 0, z: -2.9, yaw: -0.66,
+    scale: [1.0, 1.0, 1.0] as [number, number, number],
     guideTitle: 'THE ENGINEER',
     guideText: 'Fixes engines for scrap. Fixes everything else for reasons she declines to file.',
   },
   {
-    tint: 0x8fd98f, clip: 'Idle_Loop', x: 0.8, y: 0, z: 17.4, yaw: Math.PI,
+    tint: 0x44cc66, clip: 'Idle_Loop', x: 0.8, y: 0, z: 17.4, yaw: Math.PI,
+    scale: [1.2, 0.82, 1.2] as [number, number, number],
+    headShape: 'squat' as const,
     guideTitle: 'THE BARTENDER',
     guideText: 'Three hearts, one drink recipe. Pours with the enthusiasm of a tide table.',
   },
   {
     tint: 0x9f7fd4, clip: 'Idle_Talking_Loop', x: -4.2, y: 0, z: 13, yaw: Math.PI / 3,
+    scale: [0.85, 1.22, 0.85] as [number, number, number],
+    headShape: 'elongated' as const,
     guideTitle: 'UNCLAIMED PASSENGER',
     guideText: 'Talking to the departures board. It has been a long layover. It will be longer.',
   },
   {
-    tint: 0xd0d8e8, clip: 'Idle_Loop', x: -6.5, y: 0, z: -10.5, yaw: Math.PI / 2,
+    tint: 0xffd044, clip: 'Idle_Loop', x: -6.5, y: 0, z: -10.5, yaw: Math.PI / 2,
+    scale: [1.0, 1.0, 1.0] as [number, number, number],
     waypoints: [
       { x: -6.5, z: -10.5, wait: 4 },
       { x: -6.5, z: -2.5, wait: 2 },
@@ -285,14 +347,30 @@ export const NPC_SPAWNS = [
     guideText: 'Patrols the hangar in a full suit. "You never know," he says. He is statistically correct.',
   },
   {
-    tint: 0x5c8ad4, clip: 'Sitting_Idle_Loop', x: 1.2, y: 0.42, z: 15.4, yaw: Math.PI,
+    tint: 0xb0b8c8, clip: 'Sitting_Idle_Loop', x: 1.2, y: 0.42, z: 15.4, yaw: Math.PI,
+    scale: [1.3, 1.3, 1.3] as [number, number, number],
+    headShape: 'crystal' as const,
     guideTitle: 'REGULAR PATRON',
     guideText: 'Has a tab. The tab has its own gravitational field.',
   },
   {
     tint: 0xff2e88, clip: 'Dance_Loop', x: -3.6, y: 0, z: 16, yaw: Math.PI / 1.3, greets: false,
+    scale: [0.88, 1.18, 0.88] as [number, number, number],
+    headShape: 'elongated' as const,
     guideTitle: 'THE RAVER',
     guideText: 'Heard the music. Responded proportionally. Has been here for six shifts.',
+  },
+  {
+    tint: 0xffd044, clip: 'Idle_Talking_Loop', x: 3, y: 0, z: -14.5, yaw: -Math.PI / 4,
+    scale: [1.0, 1.0, 1.0] as [number, number, number],
+    guideTitle: 'DOCKING CONTROLLER',
+    guideText: 'Coordinates all arrivals using a combination of hand signals and wishful thinking.',
+  },
+  {
+    tint: 0xffd044, clip: 'Fixing_Kneeling', x: 1.5, y: 0, z: 7, yaw: Math.PI / 2,
+    scale: [1.05, 0.95, 1.05] as [number, number, number],
+    guideTitle: 'MAINTENANCE WORKER',
+    guideText: 'Fixing the same panel for the third time. The panel is winning.',
   },
 ] as const;
 
@@ -310,4 +388,17 @@ export const TERMINAL_LINES = [
   'PLEASE DO NOT GRAFFITI THE GRAFFITI. IT IS HERITAGE NOW.',
   'THE PLANETS VISIBLE FROM DECK 7 ARE NOT ACCEPTING VISITORS. OR APOLOGIES.',
   'YOUR CALL IS IMPORTANT TO US. YOUR ARRIVAL WAS A SURPRISE.',
+  'ENGINEERING REPORT: THE LOUD NOISE IS EXPECTED. THE QUIET NOISE IS NOT.',
+  'REMINDER: SECTOR DEEDS ARE NON-TRANSFERABLE. SO IS THE SMELL.',
+  'FORM 12-C REQUIRED TO FILE FORM 12-C. FORMS AVAILABLE FROM FORM 12-D.',
+  'TODAY\'S SPECIAL: WHATEVER IS IN THE GREEN CONTAINER. IT IS WARM. DO NOT INVESTIGATE.',
+  'THE BARTENDER IS NOT LICENSED. THE LICENSE IS ON ORDER. THE ORDER IS LOST.',
+  'IMMIGRATION STATUS: PROBABLE. EMIGRATION STATUS: ASPIRATIONAL.',
+  'MAINTENANCE NOTE: THE FLICKERING IN BAY 4 IS ART NOW.',
+  'THIS TERMINAL PROCESSES 14,000 FORMS PER SECOND AND ANSWERS ZERO OF THEM.',
+  'ALL WEAPONS MUST BE DECLARED. ALL DECLARATIONS WILL BE MISFILED.',
+  'THE SNACK MACHINE APOLOGISES FOR THE INCIDENT. IT CANNOT SAY WHICH ONE.',
+  'TRADE ROUTE STATUS: OPTIMISTIC.',
+  'HAVE YOU TRIED TURNING THE PROBLEM OFF AND BACK ON AGAIN? THE MINISTRY HAS. IT HELPED BRIEFLY.',
+  'EMERGENCY EXITS ARE MARKED WITH THE SIGN THAT WAS THERE BEFORE THE EXIT.',
 ];

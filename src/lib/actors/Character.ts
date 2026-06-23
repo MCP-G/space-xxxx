@@ -12,6 +12,8 @@ const GREET_RADIUS = 2.8;
 
 export interface Waypoint { x: number; z: number; wait: number; }
 
+export type HeadShape = 'sphere' | 'elongated' | 'squat' | 'crystal';
+
 export interface CharacterOpts {
   /** Body tint for the mannequin's main material. */
   tint: number;
@@ -25,6 +27,10 @@ export interface CharacterOpts {
   greets?: boolean;
   guideTitle: string;
   guideText: string;
+  /** Body scale multiplier — use (w, h, d) for alien silhouette variety. */
+  scale?: [number, number, number];
+  /** Alien head shape attachment. */
+  headShape?: HeadShape;
 }
 
 export class Character {
@@ -57,6 +63,11 @@ export class Character {
 
   static async spawn(opts: CharacterOpts): Promise<Character> {
     const { root, inner, animations } = await instantiate(MANNEQUIN_URL, { height: 1.75 });
+    // scale variant for alien silhouette diversity
+    if (opts.scale) {
+      const [sx, sy, sz] = opts.scale;
+      inner.scale.set(sx, sy, sz);
+    }
     // tint the body material per role (clone so castmates don't share paint)
     inner.traverse((o) => {
       const mesh = o as THREE.Mesh;
@@ -70,11 +81,32 @@ export class Character {
         ? mesh.material.map(tintOne)
         : tintOne(mesh.material);
     });
+    // attach alien head shape
+    if (opts.headShape && opts.headShape !== 'sphere') {
+      const headBone = inner.getObjectByName('Head') ?? inner.getObjectByName('head');
+      if (headBone) {
+        const headMat = new THREE.MeshStandardMaterial({ color: opts.tint, roughness: 0.6, metalness: 0 });
+        let geom: THREE.BufferGeometry;
+        if (opts.headShape === 'elongated') {
+          geom = new THREE.SphereGeometry(0.16, 8, 6);
+          geom.scale(1, 1.7, 1);
+        } else if (opts.headShape === 'squat') {
+          geom = new THREE.SphereGeometry(0.22, 8, 5);
+          geom.scale(1.4, 0.75, 1.2);
+        } else {
+          geom = new THREE.IcosahedronGeometry(0.17, 0);
+        }
+        const headMesh = new THREE.Mesh(geom, headMat);
+        headMesh.position.set(0, 0.06, 0);
+        headMesh.userData.proceduralHead = true;
+        headBone.add(headMesh);
+      }
+    }
     const mixer = new THREE.AnimationMixer(inner);
     return new Character(root, mixer, animations, opts);
   }
 
-  /** Free this character's cloned materials (geometry is shared — leave it). */
+  /** Free this character's cloned materials and any procedural head geometry. */
   dispose() {
     this.mixer.stopAllAction();
     this.root.traverse((o) => {
@@ -82,6 +114,8 @@ export class Character {
       if (!mesh.isMesh) return;
       const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
       for (const m of mats) m?.dispose?.();
+      // dispose procedural head geometry (not shared)
+      if (mesh.userData.proceduralHead) mesh.geometry?.dispose();
     });
   }
 

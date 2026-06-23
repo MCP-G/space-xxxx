@@ -1,9 +1,25 @@
 # SPACE XXXX — State of the Universe (handoff)
 
-*Last updated: June 2026 (post-R2 + decay pass). Everything below is
+*Last updated: June 2026 (visual overhaul). Everything below is
 implemented, committed, and verified in-browser unless marked otherwise.*
 
-## Latest session: full QA sweep (Opus 4.8)
+## Latest session: visual overhaul — palette, alien cast, screens, HUD, props (Opus 4.8)
+
+Full visual pass to shift from sparse dark cyber-decay to vibrant, character-forward, screen-rich space game. Reference: 5 AAA screenshots (neons, dense alien populations, rich UIs, screen-heavy environments, comedy props).
+
+**Phase 1 — Palette & Lighting:** 8 new `MaterialLibrary` presets (`neon-teal`, `neon-purple`, `neon-orange`, `neon-pink`, `panel-lit`, `hull-yellow`, `alien-skin-green`, `alien-skin-grey`). Station: 8 named coloured PointLights (blue hangar floods, teal corridor strips, amber/pink/purple bar). Sector POIs: mine orange, derelict sickly-green flicker, beacon cold-blue + flood, wreck deep-red. Planet rim lights colour-coded per planet index. Planet emissiveIntensity 0.5→0.9.
+
+**Phase 2 — Character Diversity:** `Character.ts` gains `HeadShape` (`sphere` | `elongated` | `squat` | `crystal`) and `scale?: [x,y,z]` opts. Procedural head mesh attaches to Head bone at spawn; `dispose()` frees it. Station NPC_SPAWNS: 6→8 with varied scale+headShape. TERMINAL_LINES: 12→25. Derelict gets lone survivor (squat head, eerie green tint). Planet bards use `bardScales`/`bardHeads` arrays for diversity.
+
+**Phase 3 — Screen Content:** New `src/render/ScreenTextures.ts` — 4 canvas texture generators: `makeDataScreen` (Ministry data feed), `makeStarMapScreen` (dot map), `makeFaceScreen` (pixel-art face, 3 eye styles), `makeAlertScreen` (hazard stripes + status codes). Ship cockpit: single dashScreen replaced with 3×2 grid of 6 mini-screens.
+
+**Phase 4 — Rich HUD:** `hud.ts` overhauled: `flightPanel` with SPD gauge bars, `minimap` canvas (80×80, top-right, updates with POI dots), `portraits` bar at screen bottom with pixel-art NPC faces (shown in walk mode), Ministry invoice on death flash.
+
+**Phase 5 — Prop Density & Comedy Dressing:** Station bar gets ping-pong table, 2 arcade machines with glowing screens, 2 alien plants, hover tray. Planet terraces get 2 alien plants (planet-tinted), snack bowl with planet-specific guide text, banner poles with coloured banners. DERELICT_LOGS: 8→12 entries. Decay.ts: 26→36 slogans, 28→36 tags.
+
+**Stats after overhaul:** 36 slogans · 36 graffiti tags · 25 terminal lines · 12 ship's-log entries · `HeadShape` variety (4 types) · 6 mini cockpit screens · 8 station NPCs. TypeScript clean, 12/12 tests pass.
+
+## Previous session: full QA sweep (Opus 4.8)
 
 Exhaustive bug hunt — "leave no stone unturned". Production build (`npm run
 build`) green, 12 tests pass, git clean+synced, no leftover debug code, no

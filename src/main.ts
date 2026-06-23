@@ -109,7 +109,9 @@ let activePoi: Poi | null = null;
 const cine = new Cinematic();
 
 function beginFlight() {
-  leavePlanet(); // bards wave you off; the score fades back to synth
+  leavePlanet();
+  leaveDerelict();
+  hud.hidePortraits();
   mode = 'fly';
   walk.active = false;
   flight.active = true;
@@ -157,6 +159,13 @@ function enterWalk(x: number, y: number, z: number) {
   walk.setPosition(x, y, z);
   audio.setMode('station');
   audio.setThrust(0);
+  // show portrait bar for current location's cast
+  const portraits = NPC_SPAWNS.slice(0, 8).map(s => ({
+    name: (s as {guideTitle:string}).guideTitle,
+    color: (s as {tint:number}).tint,
+    role: (s as {guideTitle:string}).guideTitle.split(' ')[1] ?? 'CREW',
+  }));
+  hud.showPortraits(portraits);
 }
 
 // --- interactables
@@ -244,6 +253,32 @@ const kioskInteract = interactions.add({
   onUse: () => { openMarketId = openMarketId === null ? 2 : null; renderMarket(); },
 });
 
+// ---- derelict survivor: one very calm person who survived the logs ----
+const derelictChars: Character[] = [];
+function enterDerelict(_poi: unknown, _spot: unknown) {
+  if (derelictChars.length) return; // already spawned
+  const survivorPos = sector.pois.find((p: {kind: string}) => p.kind === 'derelict')?.dock?.standPos;
+  if (!survivorPos) return;
+  Character.spawn({
+    tint: 0x44cc66, clip: 'Idle_Loop',
+    position: new THREE.Vector3(survivorPos.x - 2, survivorPos.y, survivorPos.z + 4),
+    yaw: -0.5, greets: true,
+    scale: [1.0, 1.0, 1.0],
+    headShape: 'squat',
+    guideTitle: 'THE SURVIVOR',
+    guideText: 'They found the snacks. The snacks did not survive. They did.',
+  }).then((c) => {
+    if (!derelictChars.length && c) { // still on the derelict
+      world.scene.add(c.root);
+      derelictChars.push(c);
+    }
+  }).catch(() => {});
+}
+function leaveDerelict() {
+  for (const c of derelictChars) { world.scene.remove(c.root); c.dispose(); }
+  derelictChars.length = 0;
+}
+
 // ---- planet surfaces: alien bards, dialogue, and a poetry shop ----
 let onPlanet: Poi | null = null;
 const planetChars: Character[] = [];
@@ -277,6 +312,8 @@ function enterPlanet(poi: Poi) {
     .addScaledVector(lateral, 5).addScaledVector(inward, 1);
   planetShopInteract.enabled = true;
   // spawn the bards in a gentle arc ahead, the planet at their backs
+  const bardScales: [number, number, number][] = [[1,1,1],[0.85,1.22,0.85],[1.2,0.8,1.2],[1.35,1.35,1.35]];
+  const bardHeads = ['sphere','elongated','squat','crystal'] as const;
   poi.culture.poets.forEach((poet, i) => {
     const spread = (i - (poi.culture!.poets.length - 1) / 2) * 2.6;
     const p = dock.standPos.clone()
@@ -286,6 +323,8 @@ function enterPlanet(poi: Poi) {
       position: new THREE.Vector3(p.x, dock.floorY, p.z),
       yaw: facingYaw, greets: true,
       guideTitle: poet.name, guideText: poet.lines[0],
+      scale: bardScales[i % bardScales.length],
+      headShape: bardHeads[i % bardHeads.length],
     }).then((c) => {
       if (onPlanet !== poi) return; // player left before the bard loaded
       world.scene.add(c.root);
@@ -590,6 +629,7 @@ function setSector(seed: number) {
   // a granted deed can land mid-cinematic; don't strand the letterbox
   if (cine.active) { cine.active = false; hud.setCinematic(false); }
   leavePlanet();
+  leaveDerelict();
   world.scene.remove(sector.root);
   sector.root.traverse((o: any) => {
     o.geometry?.dispose?.();
@@ -686,6 +726,7 @@ function finalizeDock(spot: DockSpot) {
     }
   }
   if (spot.poi?.kind === 'planet') enterPlanet(spot.poi);
+  if (spot.poi?.kind === 'derelict') enterDerelict(spot.poi, spot);
   pipeline.triggerGlitch(0.6);
   audio.glitchBurst();
 }
@@ -953,6 +994,11 @@ function frame(now: number) {
     const dHome = ship.position.distanceTo(new THREE.Vector3(0, 0, -10));
     if (dHome < nearestD) nearestName = `PORT IMPROBABLE ${dHome.toFixed(0)}m`;
     hud.setFlight(flight.speed, nearestName);
+    const poiDots = sector.pois.map(p => ({
+      x: p.position.x, z: p.position.z,
+      color: p.kind === 'planet' ? '#aa44ff' : p.kind === 'derelict' ? '#44ff88' : '#00ffcc',
+    }));
+    hud.updateMinimap(ship.position, poiDots);
 
     updateNav(dt);
 

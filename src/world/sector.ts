@@ -79,6 +79,10 @@ export const DERELICT_LOGS = [
   'LOG 4416 (AUTOMATED): A SHIP DOCKED. SOMEONE READ THE LOGS. HELLO, SOMEONE.',
   'LOG 4417 (AUTOMATED): THE NOISE WOULD LIKE ITS LOG ENTRIES BACK.',
   'LOG 4418 (AUTOMATED): VISIBLE PLANET COUNT UNCHANGED. PLANETS REMAIN ALOOF.',
+  'LOG 4419: NAVIGATION REPORTS WE ARE LOST. NAVIGATION REPORTS THIS IS NOT ITS FAULT.',
+  'LOG 4420: SNACK INVENTORY: ZERO. EMOTIONAL INVENTORY: ALSO ZERO.',
+  'LOG 4421 (AUTOMATED): HULL INTEGRITY 47%. OPINIONS INTEGRITY: 0%. NOBODY ASKED.',
+  'LOG 4422: CREW MEMBER ATTEMPTED TO RENEGOTIATE WITH THE VACUUM OF SPACE. VACUUM UNRESPONSIVE.',
 ];
 
 // The bards of the outer worlds: alien Shakespeares and Fabian versifiers.
@@ -248,7 +252,7 @@ export function buildSector(world: World, seed: number): Sector {
   // prospector hut: tin shed, lived-in, recently fled
   padBox(scene, mPad, 3, 2.4, 3, minePadC.x + 3.8, minePadY + 1.2, minePadC.z - 3.8, PALETTE.wall);
   padBox(scene, mPad, 1, 1, 1, minePadC.x + 2, minePadY + 0.5, minePadC.z - 3.6, PALETTE.dark);
-  const hutLight = new THREE.PointLight(PALETTE.accentB, 12, 14, 1.6);
+  const hutLight = new THREE.PointLight(0xff7722, 18, 16, 1.6);
   hutLight.position.copy(minePadC).add(new THREE.Vector3(2, 3, -2));
   scene.add(hutLight);
   // the host rock looms over the pad
@@ -286,7 +290,7 @@ export function buildSector(world: World, seed: number): Sector {
     big.userData.guideText = 'Grew here over nine million years. The mining concern gave it a barcode.';
     scene.add(big);
   }
-  const crystalGlow = new THREE.PointLight(PALETTE.accentB, 24, 20, 1.6);
+  const crystalGlow = new THREE.PointLight(0xff8800, 32, 22, 1.6);
   crystalGlow.position.set(minePadC.x + 20, minePadY + 4, minePadC.z);
   scene.add(crystalGlow);
   // two more ore nodes out on the platform
@@ -375,8 +379,8 @@ export function buildSector(world: World, seed: number): Sector {
   lootA.userData.guideText = 'Still humming faintly in B flat.';
   addSalvage(new THREE.BoxGeometry(0.5, 0.5, 0.5), glowMat, new THREE.Vector3(dx + 1.2, dPadY + 0.25, dz - 17.5));
   addSalvage(new THREE.BoxGeometry(0.4, 0.4, 0.4), glowMat, new THREE.Vector3(dx - 3.6, dPadY + 0.2, dz - 12.3));
-  // flickering ceiling light (animated from the frame loop)
-  const flicker = new THREE.PointLight(0xfff0d8, 9, 16, 1.6);
+  // sickly green emergency light — the power is failing, the glow is not (animated from frame loop)
+  const flicker = new THREE.PointLight(0x44ff88, 12, 18, 1.6);
   flicker.position.set(dx, dPadY + 2.8, dz - 15);
   flicker.name = 'derelict-flicker';
   scene.add(flicker);
@@ -475,9 +479,13 @@ export function buildSector(world: World, seed: number): Sector {
   padBox(scene, bPadColliders, 0.4, 3, 2.2, beaconPos.x - 0.8, bPadY + 1.5, beaconPos.z - 2.8, PALETTE.wall);
   padBox(scene, bPadColliders, 1, 1.6, 0.6, beaconPos.x + 2, bPadY + 0.8, beaconPos.z - 2, PALETTE.dark);
   padBox(scene, bPadColliders, 2, 0.5, 0.8, beaconPos.x + 0.2, bPadY + 0.25, beaconPos.z - 3.2, PALETTE.accentA);
-  const kioskLight = new THREE.PointLight(PALETTE.trim, 8, 10, 1.6);
+  const kioskLight = new THREE.PointLight(0xaaddff, 14, 12, 1.5);
   kioskLight.position.set(beaconPos.x + 1.5, bPadY + 2.4, beaconPos.z - 2);
   scene.add(kioskLight);
+  // cold blue-white flood: nav beacons are government infrastructure — they get clinical lighting
+  const beaconFlood = new THREE.PointLight(0x88bbff, 20, 16, 1.5);
+  beaconFlood.position.set(beaconPos.x, bPadY + 3.5, beaconPos.z + 1);
+  scene.add(beaconFlood);
 
   sector.pois.push({
     name: 'NAV BEACON',
@@ -527,6 +535,11 @@ export function buildSector(world: World, seed: number): Sector {
   addSalvage(new THREE.BoxGeometry(0.5, 0.5, 0.5), glowMat, new THREE.Vector3(wreckPos.x + 2.5, wPadY + 1.55, wreckPos.z + 2.5));
   addSalvage(new THREE.BoxGeometry(0.45, 0.45, 0.45), glowMat, new THREE.Vector3(wreckPos.x - 2.8, wPadY + 0.22, wreckPos.z + 1));
   addSalvage(new THREE.BoxGeometry(0.4, 0.4, 0.4), glowMat, new THREE.Vector3(wreckPos.x + 0.5, wPadY + 0.2, wreckPos.z - 3.2));
+  // emergency red lighting — the wreck field is having an ongoing emergency
+  const wreckRed = new THREE.PointLight(0xff2200, 22, 20, 1.6);
+  wreckRed.name = 'wreck-red';
+  wreckRed.position.set(wreckPos.x, wPadY + 4, wreckPos.z);
+  scene.add(wreckRed);
   sector.pois.push({
     name: 'WRECK FIELD',
     kind: 'wreck',
@@ -654,12 +667,11 @@ export function buildSector(world: World, seed: number): Sector {
       ? new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9, metalness: 0 })
       : new THREE.MeshStandardMaterial({ color: 0x6a3a78, roughness: 0.9 });
     mat.fog = false; // planets live beyond the fog, like the stars
-    // faint self-glow so the night side still reads against space (you can
-    // approach and land on the dark face without it vanishing)
+    // faint self-glow so the night side still reads against space
     if (tex) {
       mat.emissiveMap = tex;
       mat.emissive = new THREE.Color(0x5a5a5a);
-      mat.emissiveIntensity = 0.5;
+      mat.emissiveIntensity = 0.9;
     }
     const planet = new THREE.Mesh(new THREE.SphereGeometry(radius, 48, 32), mat);
     planet.position.copy(pos);
@@ -681,8 +693,10 @@ export function buildSector(world: World, seed: number): Sector {
       ring.rotation.x = Math.PI / 2 + (rnd() - 0.5) * 0.6;
       scene.add(ring);
     }
-    // a soft rim light so it reads against the void
-    const rim = new THREE.PointLight(0xfff0d8, radius * 2, radius * 6, 1.8);
+    // coloured rim light per planet — gives each world a distinct hue signature
+    const rimColors = [0x4488ff, 0xff6622, 0xaa44ff, 0x44ffcc, 0xff2288, 0xffcc22];
+    const rimColor = rimColors[i % rimColors.length];
+    const rim = new THREE.PointLight(rimColor, radius * 2.5, radius * 7, 1.8);
     rim.position.copy(pos).add(new THREE.Vector3(radius * 1.6, radius, -radius));
     scene.add(rim);
 
@@ -711,10 +725,53 @@ export function buildSector(world: World, seed: number): Sector {
       col.position.set(cx, padC.y + 2.5, cz);
       scene.add(col);
     }
-    // warm amphitheatre lighting
+    // warm amphitheatre lighting + coloured planet rim fill
     const stageLight = new THREE.PointLight(0xffe0b0, 30, 30, 1.6);
     stageLight.position.set(padC.x, padC.y + 6, padC.z);
     scene.add(stageLight);
+    // alien plants flanking the terrace, tinted to the planet
+    const lateral = toOrigin.clone().cross(new THREE.Vector3(0, 1, 0)).normalize();
+    for (const side of [-1, 1]) {
+      const plantPos = padC.clone().addScaledVector(lateral, side * 5).addScaledVector(toOrigin, 3);
+      const stemMat = new THREE.MeshLambertMaterial({ color: 0x1a3a1a });
+      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 1.4, 7), stemMat);
+      stem.position.set(plantPos.x, padC.y + 0.7, plantPos.z);
+      scene.add(stem);
+      const blobColor = [0x44cc66, 0xaa44ff, 0xff6644, 0x4488ff][i % 4];
+      const blob = new THREE.Mesh(new THREE.SphereGeometry(0.4 + rnd() * 0.2, 8, 6),
+        new THREE.MeshLambertMaterial({ color: blobColor }));
+      blob.position.set(plantPos.x, padC.y + 1.7, plantPos.z);
+      blob.userData.guideTitle = 'LOCAL FLORA';
+      blob.userData.guideText = 'Thriving in conditions that would end most civilisations. Quietly smug about it.';
+      scene.add(blob);
+    }
+    // snack bowl at the edge — a local delicacy
+    const snackPos = padC.clone().addScaledVector(toOrigin, 4).addScaledVector(lateral, -2);
+    const bowl = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.11, 0.06, 10),
+      new THREE.MeshLambertMaterial({ color: 0x8a8ac0 }));
+    bowl.position.set(snackPos.x, padC.y + 0.03, snackPos.z);
+    const snackNames = [pname + ' SPECIALTY: UNIDENTIFIED PURPLE PASTE. BELOVED BY ALL. UNDERSTOOD BY NONE.',
+      'THE LOCAL SNACK IS ' + pname.split(' ')[0] + ' PUDDING. TEXTURE: COMMITTED.',
+      'FREE SAMPLES OF SOMETHING. THE LABEL IS IN BINARY.',
+    ];
+    bowl.userData.guideTitle = 'SNACK BOWL';
+    bowl.userData.guideText = snackNames[i % snackNames.length];
+    scene.add(bowl);
+    // banner poles with alien script
+    for (const bside of [-1, 1]) {
+      const bPos = padC.clone().addScaledVector(toOrigin, 8.5).addScaledVector(lateral, bside * 3.5);
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 4, 5),
+        new THREE.MeshLambertMaterial({ color: 0x555580 }));
+      pole.position.set(bPos.x, padC.y + 2, bPos.z);
+      scene.add(pole);
+      const bannerMat = new THREE.MeshBasicMaterial({
+        color: [0xff2e88, 0x7fffd4, 0xffd23e, 0xaa44ff][i % 4],
+        side: THREE.DoubleSide, transparent: true, opacity: 0.7,
+      });
+      const banner = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 1.0), bannerMat);
+      banner.position.set(bPos.x + 0.4, padC.y + 3.3, bPos.z);
+      scene.add(banner);
+    }
 
     // culture: 2-3 alien bards, a shop, a key for the score
     const poetPool = PLANET_POETS.slice();

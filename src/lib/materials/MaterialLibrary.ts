@@ -44,6 +44,15 @@ const DEFS = {
   'glow-white':    { color: 0xffffff, unlit: true },
   'screen-dead':   { color: 0x2a4438, unlit: true },
   'lamp-warm':     { color: 0xfff0d8, unlit: true },
+  // neon accents (Phase 1 visual overhaul)
+  'neon-teal':       { color: 0x00ffe0, emissive: 0x00ffe0, emissiveIntensity: 1.2, roughness: 0.2, metalness: 0.3 },
+  'neon-purple':     { color: 0xaa44ff, emissive: 0xaa44ff, emissiveIntensity: 1.0, roughness: 0.2, metalness: 0.3 },
+  'neon-orange':     { color: 0xff6600, emissive: 0xff6600, emissiveIntensity: 1.0, roughness: 0.2, metalness: 0.3 },
+  'neon-pink':       { color: 0xff2e88, emissive: 0xff2e88, emissiveIntensity: 1.0, roughness: 0.2, metalness: 0.3 },
+  'panel-lit':       { color: 0x0a1a14, emissive: 0x00ff88, emissiveIntensity: 0.6, roughness: 0.5, metalness: 0.2 },
+  'hull-yellow':     { color: 0xffd044, roughness: 0.7,  metalness: 0.1 },
+  'alien-skin-green':{ color: 0x44cc66, roughness: 0.55, metalness: 0.0 },
+  'alien-skin-grey': { color: 0xb0b8c8, roughness: 0.6,  metalness: 0.0 },
   // fx
   'field-shimmer': { color: 0x7fffd4, unlit: true, transparent: true, opacity: 0.12 },
 } satisfies Record<string, MaterialDef>;

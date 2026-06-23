@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { applyVertexSnap } from '../render/PixelPipeline';
 import { PALETTE, type ColliderBox } from '../world/station';
+import { makeDataScreen, makeStarMapScreen, makeFaceScreen, makeAlertScreen } from '../render/ScreenTextures';
 
 interface LocalBox {
   w: number; h: number; d: number;
@@ -25,6 +26,7 @@ export class Ship {
   readonly rampExitLocal = new THREE.Vector3(0, 0, 4.6);
 
   private localColliders: LocalBox[] = [];
+  screenTiles: THREE.Mesh[] = [];
 
   constructor() {
     // standard materials pick up scene.environment → starlight reflections
@@ -202,6 +204,7 @@ export class Ship {
     // cockpit dashboard: button rows and a tiny screen that worries
     const dashTop = addExt(new THREE.BoxGeometry(1.7, 0.1, 0.7), darkMat, 0, 1.28, -3.45);
     dashTop.rotation.x = 0.25;
+    // button row
     for (let i = 0; i < 6; i++) {
       const lit = i % 2 === 0;
       addExt(
@@ -210,8 +213,22 @@ export class Ship {
         -0.6 + i * 0.24, 1.36, -3.42
       );
     }
-    const dashScreen = addExt(new THREE.BoxGeometry(0.5, 0.3, 0.04), new THREE.MeshBasicMaterial({ color: 0x103830 }), 0, 1.55, -3.62);
-    dashScreen.rotation.x = -0.2;
+    // 3×2 grid of mini video-feed screens on the forward bulkhead
+    const screenMakers = [makeFaceScreen, makeDataScreen, makeStarMapScreen.bind(null, 5), makeFaceScreen, makeAlertScreen, makeDataScreen];
+    const screenTiles: THREE.Mesh[] = [];
+    for (let row = 0; row < 2; row++) {
+      for (let col = 0; col < 3; col++) {
+        const idx = row * 3 + col;
+        const tex = screenMakers[idx](idx * 17 + 3);
+        const screenMat = new THREE.MeshBasicMaterial({ map: tex });
+        const screenMesh = addExt(new THREE.PlaneGeometry(0.44, 0.3), screenMat, -0.46 + col * 0.47, 1.82 - row * 0.34, -3.65);
+        screenMesh.rotation.x = -0.22;
+        screenMesh.userData.guideTitle = ['CREW FEED', 'COMMS', 'SECTOR MAP', 'CREW FEED B', 'ALERTS', 'DATA'][idx];
+        screenMesh.userData.guideText = 'Live data from systems that have varying opinions about what "live" means.';
+        screenTiles.push(screenMesh);
+      }
+    }
+    this.screenTiles = screenTiles;
     // a steering yoke, vestigial but reassuring
     addExt(new THREE.TorusGeometry(0.18, 0.025, 6, 12), darkMat, 0, 1.15, -3.15).rotation.x = 0.4;
 
