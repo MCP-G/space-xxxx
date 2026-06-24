@@ -99,7 +99,9 @@ export class PixelPipeline {
   private ftN = 0;
 
   constructor(canvas: HTMLCanvasElement) {
-    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
+    // preserveDrawingBuffer lets the canvas be captured via toDataURL (sharing /
+    // screenshots). Negligible cost at this resolution.
+    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false, preserveDrawingBuffer: true });
     // ?shadows=0 for software-GL environments (CI, headless previews)
     const wantShadows = new URLSearchParams(location.search).get('shadows') !== '0';
     this.renderer.shadowMap.enabled = wantShadows;
